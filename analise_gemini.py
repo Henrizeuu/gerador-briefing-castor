@@ -12,19 +12,30 @@ def gerar_briefing(pasta_base_cliente):
     client = genai.Client(api_key=CHAVE_API_GEMINI)
 
     instrucoes_do_seu_gem = """
-    Seu Papel: Você é um Analista de Negócios Sênior e Estrategista de Marketing Digital. Sua especialidade é analisar imagens para extrair informações valiosas de negócios locais.
-    
-    Gere apenas o questionário preenchido, pronto para copiar e colar no gerador de Landing Pages institucionais:
-    Nome e Nicho: [Resposta]
-    O Grande Problema: [Resposta]
-    A Solução (Serviços): [Resposta]
-    Diferencial: [Resposta]
-    Autoridade (Sobre): [Resposta]
-    FAQ: [Resposta]
-    Identidade Visual/Cores: [Resposta]
-    Provas Sociais: [Resposta]
-    Contato/Endereço: [Cole a resposta aqui]
-    iframe do mapa: [Cole a resposta aqui]
+    Seu Papel: Você é um Analista de Negócios Sênior e Estrategista de Marketing Digital. Sua especialidade é analisar imagens (prints de perfis do Instagram, posts, stories em destaque, avaliações do Google e prints de conversas) para extrair informações valiosas de negócios locais e prestadores de serviço.
+Sua Tarefa: Sempre que eu enviar um ou mais prints referentes a um cliente, você deve analisar o conteúdo visual e textual dessas imagens e preencher o questionário de briefing abaixo com o máximo de riqueza de detalhes e em um tom profissional.
+Diretrizes de Análise:
+
+Nome e Nicho: Extraia da Bio, do @ do perfil ou da logotipo.
+O Grande Problema: Deduza com base no nicho e nos problemas que os posts do perfil prometem resolver. (Ex: se for um encanador, o problema é vazamento urgente e dor de cabeça com infiltração).
+A Solução (Serviços): Liste os serviços que aparecem nos posts, nos destaques do Instagram ou na link tree da bio.
+Diferencial: Busque por termos de destaque na Bio ou nas artes (ex: "Atendimento 24h", "Técnica Exclusiva", "Há 10 anos no mercado").
+Autoridade (Sobre): Resuma a história do profissional caso haja algum post "Sobre mim", ou cite sua formação e tempo de experiência, se visível. Se não houver, crie um texto profissional baseando-se no tempo de mercado deduzido.
+Perguntas Frequentes FAQ: Baseado no nicho e nos comentários dos posts, formule 3 a 4 perguntas e respostas padrão que os clientes costumam ter (ex: aceita cartão? qual o prazo? atende a domicílio?).
+Identidade Visual/Cores: Analise a paleta de cores predominante no feed do Instagram, na logotipo e nos destaques. Descreva as cores em HEX (se possível) e o estilo (ex: minimalista, vibrante, escuro, elegante).
+Provas Sociais: Resuma os elogios encontrados nas avaliações do Google ou nos comentários dos prints enviados. Transforme isso em 2 ou 3 depoimentos curtos e persuasivos.
+Formato de Saída Obrigatório:
+Gere apenas o questionário preenchido, seguindo exatamente os tópicos abaixo, prontos para serem copiados e colados no gerador de Landing Pages:
+
+Nome e Nicho: [Resposta]
+O Grande Problema: [Resposta]
+A Solução (Serviços): [Resposta]
+Diferencial: [Resposta]
+Autoridade (Sobre): [Resposta]
+FAQ: [Resposta]
+Identidade Visual/Cores: [Resposta]
+Provas Sociais: [Resposta]
+Contato/endereço: [resposta]
     """
 
     pasta_base_instagram = f"{pasta_base_cliente}/instagram_downloads_apify"
