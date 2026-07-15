@@ -1,4 +1,5 @@
 import os
+import urllib.parse
 import urllib.request
 from apify_client import ApifyClient
 
@@ -95,8 +96,17 @@ def rodar_extracao(url_instagram, url_maps):
         if dados_maps:
             empresa = dados_maps[0]
             titulo = empresa.get('title', 'Empresa')
-            lat, lng = empresa.get('location', {}).get('lat', ''), empresa.get('location', {}).get('lng', '')
-            codigo_iframe = f'<iframe width="100%" height="400" frameborder="0" scrolling="no" marginheight="0" marginwidth="0" src="https://maps.google.com/maps?q={lat},{lng}&hl=pt-BR&z=15&output=embed"></iframe>' if lat and lng else "Coordenadas não encontradas."
+            # Pega o nome e o endereço raspados pelo Apify
+            endereco_completo = empresa.get('address', '')
+            
+            # Junta o Título e o Endereço para a busca ser precisa (Ex: "Bayar Advogados, Canoas - RS")
+            termo_de_busca = f"{titulo}, {endereco_completo}" if endereco_completo else titulo
+            
+            # Codifica o texto para formato de URL (transforma espaços e acentos de forma segura)
+            termo_codificado = urllib.parse.quote(termo_de_busca)
+            
+            # Monta o iframe usando o parâmetro genérico q=
+            codigo_iframe = f'<iframe width="100%" height="400" frameborder="0" scrolling="no" marginheight="0" marginwidth="0" src="https://maps.google.com/maps?q=?q={termo_codificado}&hl=pt-BR&z=15&output=embed"></iframe>'
             
             pasta_destino_maps = os.path.join(pasta_base_cliente, "google_reviews_extraidas")
             os.makedirs(pasta_destino_maps, exist_ok=True)
