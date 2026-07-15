@@ -1,5 +1,5 @@
 import streamlit as st
-import urllib.parse # <-- IMPORTANTE ADICIONAR ISSO AQUI
+import urllib.parse
 import scraper_apify
 import analise_gemini
 
@@ -8,30 +8,39 @@ st.set_page_config(page_title="Gerador de Briefing Castor", page_icon="🦫")
 st.title("Gerador de Briefing Automatizado")
 st.write("Criação de Estrutura para Páginas Institucionais de Alta Conversão.")
 
-instagram_input = st.text_input("Instagram do Cliente (Ex: https://instagram.com/cliente)")
-
-# Mudamos a instrução para o usuário entender que pode digitar só o nome
+# 1. Ajustamos o texto de instrução para o usuário
+instagram_input = st.text_input("Instagram do Cliente (Ex: @cliente ou Link)")
 maps_input = st.text_input("Nome da Empresa e Cidade ou Link do Maps (Ex: Bayar Advogados, Canoas)")
 
 if st.button("Gerar Análise Profissional"):
     if not instagram_input:
-        st.warning("⚠️ Por favor, insira pelo menos o link do Instagram.")
+        st.warning("⚠️ Por favor, insira pelo menos o Instagram (ex: @cliente).")
     else:
         with st.spinner('🦫 Coletando dados do Instagram e Google Maps (Aguarde 1~2 min)...'):
             
-            # --- NOVA LÓGICA DE TRATAMENTO DO MAPS ---
-            url_maps_tratada = maps_input
+            # --- NOVA LÓGICA DE TRATAMENTO DO INSTAGRAM ---
+            url_insta_tratada = instagram_input.strip()
             
-            # Se o usuário digitou algo, mas não é um link (não começa com http)
-            if maps_input and not maps_input.startswith("http"):
-                # Codifica o texto (troca espaços por %20, etc)
-                termo_codificado = urllib.parse.quote(maps_input)
-                # Cria a URL oficial de busca do Google Maps
+            # Se não começar com 'http', significa que o usuário digitou só o @ ou o nome
+            if url_insta_tratada and not url_insta_tratada.startswith("http"):
+                # Se o usuário digitou com '@' no começo, removemos o '@'
+                if url_insta_tratada.startswith("@"):
+                    url_insta_tratada = url_insta_tratada[1:]
+                
+                # Montamos a URL completa oficial do Instagram
+                url_insta_tratada = f"https://www.instagram.com/{url_insta_tratada}/"
+            # ----------------------------------------------
+            
+            # --- LÓGICA DE TRATAMENTO DO MAPS (Mantida) ---
+            url_maps_tratada = maps_input.strip() if maps_input else ""
+            
+            if url_maps_tratada and not url_maps_tratada.startswith("http"):
+                termo_codificado = urllib.parse.quote(url_maps_tratada)
                 url_maps_tratada = f"https://www.google.com/maps/search/?api=1&query={termo_codificado}"
-            # -----------------------------------------
+            # ----------------------------------------------
 
-            # Passo 1: Chama o scraper passando a URL tratada
-            pasta_do_cliente = scraper_apify.rodar_extracao(instagram_input, url_maps_tratada)
+            # Passo 1: Chama o scraper passando as DUAS URLs já formatadas
+            pasta_do_cliente = scraper_apify.rodar_extracao(url_insta_tratada, url_maps_tratada)
             
             if not pasta_do_cliente or "Erro" in pasta_do_cliente:
                 st.error(pasta_do_cliente if pasta_do_cliente else "Erro desconhecido na extração.")
