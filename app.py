@@ -1,6 +1,6 @@
 import streamlit as st
 import urllib.parse
-import scraper_apify
+import scraper_dados # Atualizado
 import analise_gemini
 
 st.set_page_config(page_title="Gerador de Briefing Castor", page_icon="🦫")
@@ -8,34 +8,28 @@ st.set_page_config(page_title="Gerador de Briefing Castor", page_icon="🦫")
 st.title("Gerador de Briefing Automatizado")
 st.write("Criação de Estrutura para Páginas Institucionais de Alta Conversão.")
 
-# 1. Ajustamos o texto de instrução para o usuário
 instagram_input = st.text_input("Instagram do Cliente (Ex: @cliente ou Link)")
 maps_input = st.text_input("Nome da Empresa e Cidade ou Link do Maps (Ex: Bayar Advogados, Canoas)")
 
-# Botão Etapa 1: Gerar o Briefing
 if st.button("Gerar Análise Profissional"):
     if not instagram_input:
         st.warning("⚠️ Por favor, insira pelo menos o Instagram (ex: @cliente).")
     else:
         with st.spinner('🦫 Coletando dados do Instagram e Google Maps (Aguarde 1~2 min)...'):
             
-            # --- NOVA LÓGICA DE TRATAMENTO DO INSTAGRAM ---
             url_insta_tratada = instagram_input.strip()
-            
             if url_insta_tratada and not url_insta_tratada.startswith("http"):
                 if url_insta_tratada.startswith("@"):
                     url_insta_tratada = url_insta_tratada[1:]
                 url_insta_tratada = f"https://www.instagram.com/{url_insta_tratada}/"
             
-            # --- LÓGICA DE TRATAMENTO DO MAPS (Mantida) ---
             url_maps_tratada = maps_input.strip() if maps_input else ""
-            
             if url_maps_tratada and not url_maps_tratada.startswith("http"):
                 termo_codificado = urllib.parse.quote(url_maps_tratada)
                 url_maps_tratada = f"https://www.google.com/maps/search/?api=1&query={termo_codificado}"
 
-            # Passo 1: Chama o scraper passando as DUAS URLs já formatadas
-            pasta_do_cliente = scraper_apify.rodar_extracao(url_insta_tratada, url_maps_tratada)
+            # Chama o nosso novo scraper nativo
+            pasta_do_cliente = scraper_dados.rodar_extracao(url_insta_tratada, url_maps_tratada)
             
             if not pasta_do_cliente or "Erro" in pasta_do_cliente:
                 st.error(pasta_do_cliente if pasta_do_cliente else "Erro desconhecido na extração.")
@@ -44,10 +38,8 @@ if st.button("Gerar Análise Profissional"):
             st.success("Dados extraídos! O cérebro digital está analisando...")
             
         with st.spinner('🧠 Processando Alta Costura Digital e Prova Social...'):
-            # Passo 2: Manda a pasta pro Gemini ler
             relatorio_final = analise_gemini.gerar_briefing(pasta_do_cliente)
             
-            # Salva na memória da sessão para o segundo botão poder usar sem sumir a tela
             st.session_state['relatorio_final'] = relatorio_final
             st.session_state['pasta_do_cliente'] = pasta_do_cliente
             st.session_state['url_insta_tratada'] = url_insta_tratada
