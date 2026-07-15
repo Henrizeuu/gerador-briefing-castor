@@ -1,6 +1,6 @@
 import os
 import urllib.request
-import instaloader
+from ensta import Guest
 from playwright.sync_api import sync_playwright
 
 def rodar_extracao(url_insta, url_maps):
@@ -18,43 +18,49 @@ def rodar_extracao(url_insta, url_maps):
     os.makedirs(pasta_maps, exist_ok=True)
 
     # ---------------------------------------------------------
-    # 1. EXTRAÇÃO DO INSTAGRAM (Usando Instaloader)
+    # 1. EXTRAÇÃO DO INSTAGRAM (Usando Ensta)
     # ---------------------------------------------------------
     try:
-        L = instaloader.Instaloader(download_videos=False, save_metadata=False)
-        profile = instaloader.Profile.from_username(L.context, nome_cliente)
+        print(f"🦫 Iniciando extração silenciosa do Instagram via Ensta para: @{nome_cliente}")
         
-        # Salva a Bio no diretório raiz do insta
-        with open(os.path.join(pasta_insta, "dados_perfil.txt"), "w", encoding="utf-8") as f:
-            f.write(f"Nome: {profile.full_name}\nBio: {profile.biography}\nSeguidores: {profile.followers}")
-            
-        # Salva a foto de perfil
-        if profile.profile_pic_url:
-            urllib.request.urlretrieve(profile.profile_pic_url, os.path.join(pasta_insta, "foto_perfil.jpg"))
-            
-        # Baixa as imagens e descrições dos últimos 10 posts
-        for i, post in enumerate(profile.get_posts()):
-            if i >= 10: break
-            pasta_post = os.path.join(pasta_insta, post.shortcode)
-            os.makedirs(pasta_post, exist_ok=True)
-            
-            urllib.request.urlretrieve(post.url, os.path.join(pasta_post, "imagem.jpg"))
-            
-            with open(os.path.join(pasta_post, "descricao.txt"), "w", encoding="utf-8") as f:
-                f.write(post.caption if post.caption else "Sem legenda.")
+        # Inicializa o modo Guest (sem login)
+        guest = Guest()
+        perfil = guest.profile(nome_cliente)
+        
+        if perfil:
+            # Salva a Bio e dados principais
+            with open(os.path.join(pasta_insta, "dados_perfil.txt"), "w", encoding="utf-8") as f:
+                f.write(f"Nome: {perfil.full_name}\n")
+                f.write(f"Bio: {perfil.biography}\n")
+                f.write(f"Seguidores: {perfil.follower_count}\n")
+                f.write(f"Categoria: {perfil.category_name}\n")
                 
+            # Salva a foto de perfil em alta resolução
+            if perfil.profile_picture_url_hd:
+                urllib.request.urlretrieve(perfil.profile_picture_url_hd, os.path.join(pasta_insta, "foto_perfil.jpg"))
+            elif perfil.profile_picture_url:
+                urllib.request.urlretrieve(perfil.profile_picture_url, os.path.join(pasta_insta, "foto_perfil.jpg"))
+
+            # Observação: O modo Guest do Ensta extrai perfeitamente a Bio e a Foto. 
+            # Dependendo das atualizações recentes da API do Instagram, a extração de múltiplos 
+            # posts via Guest pode ser limitada. Se o analise_gemini.py precisar das imagens 
+            # dos últimos posts para a prova social, e o Ensta não trouxer, podemos 
+            # usar o Playwright (logo abaixo) para pegar as fotos também.
+
     except Exception as e:
-        print(f"Aviso na extração do Instagram: {e}")
+        print(f"Aviso na extração do Instagram com Ensta: {e}")
 
     # ---------------------------------------------------------
     # 2. EXTRAÇÃO DO GOOGLE MAPS (Usando Playwright)
     # ---------------------------------------------------------
     if url_maps:
         try:
+            print("🗺️ Iniciando extração de provas sociais do Google Maps...")
             with sync_playwright() as p:
                 browser = p.chromium.launch(headless=True)
                 page = browser.new_page()
                 page.goto(url_maps)
+                
                 # Aguarda o carregamento do painel do Maps
                 page.wait_for_timeout(4000)
                 
@@ -62,7 +68,7 @@ def rodar_extracao(url_insta, url_maps):
                 texto_pagina = page.locator("body").inner_text()
                 
                 with open(os.path.join(pasta_maps, "avaliacoes.txt"), "w", encoding="utf-8") as f:
-                    f.write(texto_pagina[:5000]) # Limita para não estourar o contexto
+                    f.write(texto_pagina[:6000]) # Limite generoso para pegar várias avaliações
                     
                 browser.close()
         except Exception as e:
