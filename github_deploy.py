@@ -3,7 +3,6 @@ from github import Github
 from github import Auth
 
 def subir_para_github(codigo_html, lista_imagens, nome_cliente_repo, dominio_customizado):
-    # Você precisará gerar um Personal Access Token (PAT) no GitHub e colocar no .env
     TOKEN_GITHUB = os.environ.get("GITHUB_TOKEN")
     if not TOKEN_GITHUB:
         return "Erro: Token do GitHub não configurado."
@@ -14,27 +13,38 @@ def subir_para_github(codigo_html, lista_imagens, nome_cliente_repo, dominio_cus
     try:
         usuario = g.get_user()
         
-        # 1. Cria o repositório do cliente (privado ou público, aqui está como público para o Pages funcionar free)
-        repo = usuario.create_repo(nome_cliente_repo, description=f"Site Institucional - {nome_cliente_repo}")
+        # 1. Tenta criar o repositório. Se ele já existir, selecionamos o existente.
+        try:
+            repo = usuario.create_repo(nome_cliente_repo, description=f"Site Institucional - {nome_cliente_repo}")
+        except Exception:
+            repo = usuario.get_repo(nome_cliente_repo)
         
-        # 2. Faz o commit do index.html
-        repo.create_file("index.html", "Commit inicial: Index HTML", codigo_html, branch="main")
+        # Função interna blindada: se o arquivo já existir, ela pega o SHA e atualiza. Se não, cria.
+        def salvar_arquivo_no_github(caminho_repo, mensagem, conteudo):
+            try:
+                # Verifica se o arquivo já existe no repositório
+                arquivo_existente = repo.get_contents(caminho_repo, ref="main")
+                # Se existir, atualiza enviando o SHA (exatamente o que a documentação pede)
+                repo.update_file(arquivo_existente.path, mensagem, conteudo, arquivo_existente.sha, branch="main")
+            except Exception:
+                # Se não existir, cria do zero
+                repo.create_file(caminho_repo, mensagem, conteudo, branch="main")
+
+        # 2. Faz o commit (ou update) do index.html
+        salvar_arquivo_no_github("index.html", "Atualizando Index HTML", codigo_html)
         
-        # 3. Faz o commit das imagens na pasta /assets
-        for caminho_local in lista_imagens:
-            nome_arquivo = os.path.basename(caminho_local)
-            caminho_no_github = f"assets/{nome_arquivo}"
-            
+        # 3. Faz o commit das imagens na pasta /assets com os mesmos nomes que a IA recebeu
+        for i, caminho_local in enumerate(lista_imagens):
+            caminho_no_github = f"assets/imagem_{i}.jpg"
             with open(caminho_local, 'rb') as f:
                 conteudo_imagem = f.read()
-                
-            repo.create_file(caminho_no_github, f"Adicionando {nome_arquivo}", conteudo_imagem, branch="main")
+            salvar_arquivo_no_github(caminho_no_github, f"Adicionando {caminho_no_github}", conteudo_imagem)
 
-        # 4. Cria o arquivo CNAME para o GitHub Pages reconhecer o domínio (epiverso.exemplocliente.com)
+        # 4. Cria (ou atualiza) o arquivo CNAME
         if dominio_customizado:
-            repo.create_file("CNAME", "Configurando domínio", dominio_customizado, branch="main")
+            salvar_arquivo_no_github("CNAME", "Configurando domínio", dominio_customizado)
             
-        return f"Sucesso! Site subiu para [https://github.com/Henrizeuu/](https://github.com/Henrizeuu/){nome_cliente_repo}"
+        return f"Sucesso! Site subiu para [https://github.com/](https://github.com/){usuario.login}/{nome_cliente_repo}"
         
     except Exception as e:
         return f"Erro ao subir pro GitHub: {str(e)}"
