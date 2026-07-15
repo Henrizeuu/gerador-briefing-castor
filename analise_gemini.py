@@ -34,7 +34,7 @@ Diferencial: [Resposta]
 Autoridade (Sobre): [Resposta]
 FAQ: [Resposta]
 Identidade Visual/Cores: [Resposta]
-Provas Sociais: [Resposta]
+Provas Sociais com nomes dos clientes conforme recebido: [Resposta]
 Contato/endereço: [resposta]
 Iframe completo conforme recebido: [Resposta]
     """
