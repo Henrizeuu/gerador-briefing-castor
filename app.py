@@ -48,24 +48,21 @@ if st.button("Gerar Análise Profissional"):
                 
             st.success("Dados extraídos! O cérebro digital está analisando...")
             
-        with st.spinner('🧠 Processando Alta Costura Digital e Prova Social...'):
+with st.spinner('🧠 Processando Alta Costura Digital e Prova Social...'):
             # Passo 2: Manda a pasta pro Gemini ler
             relatorio_final = analise_gemini.gerar_briefing(pasta_do_cliente)
             
             st.markdown("### 👔 Resultado do Briefing")
             st.write(relatorio_final)
-
-        st.markdown("### 👔 Resultado do Briefing")
-            st.write(relatorio_final)
             
             # --- INÍCIO DA NOVA INTEGRAÇÃO ---
             st.markdown("---")
-            st.markdown("### 🚀 Implantação Automática")
+            st.markdown("### 🚀 Implantação Automática no GitHub")
             
             dominio_cliente = st.text_input("Qual será o subdomínio? (ex: cliente.epiverso.com)")
             
-            if st.button("Gerar Código e Subir para o GitHub"):
-                with st.spinner("🤖 Gerando código institucional de alta conversão..."):
+            if st.button("Gerar Código Institucional e Subir"):
+                with st.spinner("🤖 Gerando código de alta conversão e fazendo deploy..."):
                     import gerador_site
                     import github_deploy
                     import urllib.parse
@@ -75,15 +72,14 @@ if st.button("Gerar Análise Profissional"):
                     if not html_gerado:
                         st.error(caminhos_fotos) # Mensagem de erro do token
                     else:
-                        st.success("Código HTML gerado com sucesso!")
+                        st.success("Código HTML estruturado com sucesso!")
                         
-                        with st.spinner("☁️ Fazendo deploy no GitHub (Henrizeuu)..."):
-                            # Limpa o nome do cliente para criar o repo (ex: @joao -> joao)
-                            nome_repo = urllib.parse.urlparse(url_insta_tratada).path.strip('/').replace('/', '-')
-                            if not nome_repo: nome_repo = "novo-cliente"
-                            
-                            resultado_git = github_deploy.subir_para_github(html_gerado, caminhos_fotos, f"cliente-{nome_repo}", dominio_cliente)
-                            st.info(resultado_git)
-                            
-                            if "Sucesso" in resultado_git and dominio_cliente:
-                                st.warning(f"Lembrete: Vá no seu gerenciador de DNS e crie uma entrada CNAME apontando `{dominio_cliente}` para `henrizeuu.github.io`.")
+                        # Limpa o nome do cliente para criar o repo (ex: @joao -> joao)
+                        nome_repo = urllib.parse.urlparse(url_insta_tratada).path.strip('/').replace('/', '-')
+                        if not nome_repo: nome_repo = "novo-cliente"
+                        
+                        resultado_git = github_deploy.subir_para_github(html_gerado, caminhos_fotos, f"cliente-{nome_repo}", dominio_cliente)
+                        st.info(resultado_git)
+                        
+                        if "Sucesso" in resultado_git and dominio_cliente:
+                            st.warning(f"Lembrete: Vá no seu painel DNS e aponte o CNAME de `{dominio_cliente}` para `henrizeuu.github.io`.")
