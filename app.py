@@ -91,4 +91,5 @@ if 'relatorio_final' in st.session_state:
                 st.info(resultado_git)
                 
                 if "Sucesso" in resultado_git and dominio_cliente:
-                    st.warning(f"Lembrete: Vá no seu painel DNS e aponte o CNAME de `{dominio_cliente}` para `henrizeuu.github.io`.")
+                    st.success(f"🎉 Implantação 100% concluída! O site já está no ar no domínio: http://{dominio_cliente}")
+                    st.balloons() # Solta balões na tela para comemorar a automação perfeita
