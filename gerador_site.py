@@ -48,7 +48,7 @@ Baseado nisso, gere o código completo de forma clean um site limpo e lindo e mu
 na parte das fotos você sempre vai colocar foto1.webp, foto2.webp...  que é como vou subir nessa ordem, sempre
 o site deve sempre ser extremamente responsivo, para celulares, tabletes e computadores
 traga sempre um design moderno fuja do que esta acostumado icones que não usa, tire essa cara de ia se inpire em sites que são lindos e modernos sem fugir do que ja foi proposto antes
-
+"""
     prompt = f"""
     === BRIEFING DO CLIENTE ===
     {briefing_texto}
