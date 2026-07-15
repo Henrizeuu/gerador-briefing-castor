@@ -10,16 +10,13 @@ def criar_html_institucional(briefing_texto, pasta_base_cliente):
         
     client = genai.Client(api_key=CHAVE_API_GEMINI)
     
+    # Busca e conta as imagens para preencher a variável do seu prompt
     pasta_instagram = f"{pasta_base_cliente}/instagram_downloads_apify"
     caminhos_imagens = glob.glob(f"{pasta_instagram}/*/*.jpg")
-    
-    # MUDANÇA AQUI: Renomeando logicamente para evitar colisão (imagem_0.jpg, imagem_1.jpg...)
-    nomes_imagens_para_ia = []
-    for i, caminho in enumerate(caminhos_imagens[:10]): # Limite de 10 imagens no site
-        nomes_imagens_para_ia.append(f"./assets/imagem_{i}.jpg")
+    quantidade_fotos = len(caminhos_imagens[:10])
 
-    instrucoes_desenvolvedor = """
-    Atue como um Desenvolvedor Front-end Sênior e Copywriter Especialista em Landing Pages de Alta Conversão.
+    # SEU PROMPT INTACTO, SEM MUDAR UMA VÍRGULA
+    prompt_mestre = f"""Atue como um Desenvolvedor Front-end Sênior e Copywriter Especialista em Landing Pages de Alta Conversão.
 A partir das informações do cliente fornecidas no final deste prompt, escreva o código completo de uma Landing Page em um único arquivo index.html (com todo o CSS embutido na tag <style>).
 REGRAS DE DESENVOLVIMENTO (SIGA RIGOROSAMENTE):
 Proibido Economizar Código: Escreva o script de fora a fora. Não abrevie o código, não crie módulos incompletos e não use placeholders como "adicione o resto aqui". Eu preciso da página 100% pronta para ir ao ar.
@@ -33,41 +30,22 @@ ATENÇÃO AO PORTFÓLIO/GALERIA: Inclua uma seção de Galeria de Fotos/Portfól
 SEO Técnico e Gatilhos: Inclua Meta Tags otimizadas, botões flutuantes e fixos do WhatsApp pulsantes, e estruturação semântica do HTML (h1, h2, seções claras).
 Assinatura Obrigatória da Agência: No Footer, inclua os direitos reservados do cliente e adicione a assinatura exata: Desenvolvido por <a href="https://epiverso.com" target="_blank" style="color: var(--secondary); font-weight: bold; text-decoration: none;">EPIVERSO</a>. O link deve sempre abrir em uma nova aba e usar a cor secundária ou de destaque do tema para chamar a atenção.
 DADOS DO CLIENTE:
-Nome e Nicho: [Cole a resposta aqui]
-O Grande Problema: [Cole a resposta aqui]
-A Solução (Serviços): [Cole a resposta aqui]
-Diferencial: [Cole a resposta aqui]
-Autoridade (Sobre): [Cole a resposta aqui]
-Perguntas Frequentes FAQ: [Cole a resposta aqui]
-Identidade Visual/Cores: [Cole a resposta aqui]
-Contato/Endereço: [Cole a resposta aqui]
-Provas Sociais: [Cole a resposta aqui]
-iframe do mapa: [Cole a resposta aqui]
-quantas fotos no portfólio: [Cole a resposta aqui]
+{briefing_texto}
+quantas fotos no portfólio: {quantidade_fotos}
+
 Baseado nisso, gere o código completo de forma clean um site limpo e lindo e muito profissional!
 na parte das fotos você sempre vai colocar foto1.webp, foto2.webp...  que é como vou subir nessa ordem, sempre
 o site deve sempre ser extremamente responsivo, para celulares, tabletes e computadores
-traga sempre um design moderno fuja do que esta acostumado icones que não usa, tire essa cara de ia se inpire em sites que são lindos e modernos sem fugir do que ja foi proposto antes
-"""
-    prompt = f"""
-    === BRIEFING DO CLIENTE ===
-    {briefing_texto}
-    
-    === IMAGENS DISPONÍVEIS ===
-    Use estas imagens nas tags <img> do site (elas estarão na pasta assets):
-    {nomes_imagens_para_ia}
-    
-    Crie o código HTML/CSS/JS em um único arquivo agora.
-    """
+traga sempre um design moderno fuja do que esta acostumado icones que não usa, tire essa cara de ia se inpire em sites que são lindos e modernos sem fugir do que ja foi proposto antes"""
 
     configuracao = types.GenerateContentConfig(
-        system_instruction=instrucoes_desenvolvedor,
-        temperature=0.4
+        temperature=0.6,
+        max_output_tokens=8192 # Garante que o código HTML gigantesco não seja cortado
     )
 
     resposta = client.models.generate_content(
-        model='gemini-2.5-flash',
-        contents=prompt,
+        model='gemini-2.5-pro',
+        contents=prompt_mestre,
         config=configuracao
     )
 
