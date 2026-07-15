@@ -2,3 +2,4 @@ streamlit
 apify-client
 google-genai
 pillow
+PyGithub
