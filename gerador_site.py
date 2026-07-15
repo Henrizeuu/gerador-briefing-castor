@@ -10,15 +10,13 @@ def criar_html_institucional(briefing_texto, pasta_base_cliente):
         
     client = genai.Client(api_key=CHAVE_API_GEMINI)
     
-    # Busca apenas os nomes dos arquivos das imagens raspadas
     pasta_instagram = f"{pasta_base_cliente}/instagram_downloads_apify"
     caminhos_imagens = glob.glob(f"{pasta_instagram}/*/*.jpg")
     
-    # Cria uma lista de caminhos relativos para a IA usar (ex: ./assets/midia_1.jpg)
+    # MUDANÇA AQUI: Renomeando logicamente para evitar colisão (imagem_0.jpg, imagem_1.jpg...)
     nomes_imagens_para_ia = []
     for i, caminho in enumerate(caminhos_imagens[:10]): # Limite de 10 imagens no site
-        nome_arquivo = os.path.basename(caminho)
-        nomes_imagens_para_ia.append(f"./assets/{nome_arquivo}")
+        nomes_imagens_para_ia.append(f"./assets/imagem_{i}.jpg")
 
     instrucoes_desenvolvedor = """
     Atue como um Desenvolvedor Front-end Sênior e Copywriter Especialista em Landing Pages de Alta Conversão.
@@ -50,7 +48,6 @@ Baseado nisso, gere o código completo de forma clean um site limpo e lindo e mu
 na parte das fotos você sempre vai colocar foto1.webp, foto2.webp...  que é como vou subir nessa ordem, sempre
 o site deve sempre ser extremamente responsivo, para celulares, tabletes e computadores
 traga sempre um design moderno fuja do que esta acostumado icones que não usa, tire essa cara de ia se inpire em sites que são lindos e modernos sem fugir do que ja foi proposto antes
-    """
 
     prompt = f"""
     === BRIEFING DO CLIENTE ===
@@ -65,7 +62,7 @@ traga sempre um design moderno fuja do que esta acostumado icones que não usa, 
 
     configuracao = types.GenerateContentConfig(
         system_instruction=instrucoes_desenvolvedor,
-        temperature=0.4 # Temperatura menor para focar em código estruturado
+        temperature=0.4
     )
 
     resposta = client.models.generate_content(
@@ -74,6 +71,5 @@ traga sempre um design moderno fuja do que esta acostumado icones que não usa, 
         config=configuracao
     )
 
-    # Limpa possíveis blocos de código caso a IA teime em colocar
     codigo_limpo = resposta.text.replace("```html", "").replace("```", "").strip()
     return codigo_limpo, caminhos_imagens[:10]
