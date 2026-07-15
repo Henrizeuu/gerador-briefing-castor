@@ -1,5 +1,6 @@
 streamlit
-apify-client
 google-genai
 pillow
 PyGithub
+instaloader
+playwright
