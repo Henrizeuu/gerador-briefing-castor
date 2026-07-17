@@ -2,6 +2,5 @@ streamlit
 google-genai
 pillow
 PyGithub
-ensta
 playwright
 apify-client
