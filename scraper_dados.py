@@ -15,7 +15,8 @@ def rodar_extracao(url_insta, url_maps):
     os.makedirs(pasta_insta, exist_ok=True)
     os.makedirs(pasta_maps, exist_ok=True)
 
-    client = ApifyClient("<YOUR_API_TOKEN>")
+    CHAVE_APIFY = os.environ.get("APIFY_TOKEN")
+    client = ApifyClient(CHAVE_APIFY)
 
     # ---------------------------------------------------------
     # 1. EXTRAÇÃO DO INSTAGRAM (Híbrida: $0.30 + $0.99)
