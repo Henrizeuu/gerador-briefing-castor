@@ -43,7 +43,7 @@ O site deve sempre ser extremamente responsivo para celulares, tablets e computa
     )
 
     resposta = client.models.generate_content(
-        model='gemini-2.5-pro',
+        model='gemini-2.5-flash',
         contents=prompt_mestre,
         config=configuracao
     )
