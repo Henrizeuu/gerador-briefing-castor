@@ -107,25 +107,54 @@ def rodar_extracao(url_insta, url_maps):
         print(f"Aviso na extração do Instagram com Apify: {e}")
 
     # ---------------------------------------------------------
-    # 2. EXTRAÇÃO DO GOOGLE MAPS (Playwright Original)
+
+    # 2. EXTRAÇÃO DO GOOGLE MAPS (Usando Playwright)
+
     # ---------------------------------------------------------
+
     if url_maps:
+
         try:
+
             print("🗺️ Iniciando extração de provas sociais do Google Maps...")
+
             with sync_playwright() as p:
+
                 browser = p.chromium.launch(headless=True)
+
                 page = browser.new_page()
+
                 page.goto(url_maps)
+
                 
+
+                # Aguarda o carregamento do painel do Maps
+
                 page.wait_for_timeout(4000)
-                texto_pagina = page.locator("body").inner_text()
+
                 
+
+                # Extrai todo o texto da página para o Gemini garimpar as provas sociais
+
+                texto_pagina = page.locator("body").inner_text()
+
+                
+
                 with open(os.path.join(pasta_maps, "avaliacoes.txt"), "w", encoding="utf-8") as f:
-                    f.write(texto_pagina[:6000])
+
+                    f.write(texto_pagina[:6000]) # Limite generoso para pegar várias avaliações
+
                     
+
                 browser.close()
+
         except Exception as e:
+
             with open(os.path.join(pasta_maps, "avaliacoes.txt"), "w", encoding="utf-8") as f:
+
                 f.write(f"Erro ao extrair Maps: {str(e)}")
 
+
+
     return pasta_do_cliente
+
