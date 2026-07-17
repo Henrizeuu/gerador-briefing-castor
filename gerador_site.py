@@ -1,5 +1,6 @@
 import os
 import glob
+import re
 from google import genai
 from google.genai import types
 
@@ -14,8 +15,9 @@ def criar_html_institucional(briefing_texto, pasta_base_cliente):
     caminhos_imagens = glob.glob(f"{pasta_instagram}/*/*.jpg")
     quantidade_fotos = len(caminhos_imagens[:10])
 
-    prompt_mestre = f"""Atue como um Desenvolvedor Front-end Sênior e Copywriter Especialista em Landing Pages de Alta Conversão.
-A partir das informações do cliente fornecidas no final deste prompt, escreva o código completo de uma Landing Page em um único arquivo index.html (com todo o CSS embutido na tag <style>).
+    prompt_mestre = f"""Atue como um Desenvolvedor Front-end Sênior e Copywriter Especialista em Alta Conversão.
+A partir das informações do cliente fornecidas no final deste prompt, escreva o código completo de um Site Institucional Robusto e completo em um único arquivo index.html (com todo o CSS embutido na tag <style>).
+
 REGRAS DE DESENVOLVIMENTO (SIGA RIGOROSAMENTE):
 Proibido Economizar Código: Escreva o script de fora a fora. Não abrevie o código, não crie módulos incompletos e não use placeholders como "adicione o resto aqui". Eu preciso da página 100% pronta para ir ao ar.
 Design e UX Guiados pelo Nicho: Adapte a identidade visual estritamente ao nicho da empresa.
@@ -49,7 +51,7 @@ DADOS DO CLIENTE:
 quantas fotos no portfólio: {quantidade_fotos}"""
 
     configuracao = types.GenerateContentConfig(
-        temperature=0.5, # Baixei um pouco para deixar a IA mais focada no código e menos criativa no bate-papo
+        temperature=0.4, # Temperatura reduzida para focar em código e evitar respostas criativas longas
         max_output_tokens=8192 
     )
 
@@ -62,18 +64,18 @@ quantas fotos no portfólio: {quantidade_fotos}"""
         
         texto_bruto = resposta.text
         
-        # --- FILTRO BLINDADO: Pega só o HTML e joga fora a conversa da IA ---
-        if "<!DOCTYPE html>" in texto_bruto:
-            codigo_limpo = texto_bruto[texto_bruto.find("<!DOCTYPE html>"):]
-        elif "<html" in texto_bruto:
-            codigo_limpo = texto_bruto[texto_bruto.find("<html"):]
+        # --- FILTRO BLINDADO 2.0 (Expressões Regulares) ---
+        # Varre a resposta e recorta o HTML, eliminando qualquer conversa que a IA tenha escrito antes
+        match = re.search(r'(<!DOCTYPE html>|<html)', texto_bruto, re.IGNORECASE)
+        if match:
+            codigo_limpo = texto_bruto[match.start():]
         else:
             codigo_limpo = texto_bruto
             
-        # Limpa as crases de formatação do Markdown que possam sobrar no final
+        # Limpa as crases de formatação do Markdown que possam sobrar
         codigo_limpo = codigo_limpo.replace("```html", "").replace("```", "").strip()
         
-        # Trava de segurança: Se a IA não fechou o arquivo, nós fechamos
+        # Trava de segurança final: Se a IA não fechou o arquivo, nós garantimos que não vai quebrar o layout
         if not codigo_limpo.endswith("</html>"):
             codigo_limpo += "\n</body>\n</html>"
             
