@@ -87,3 +87,47 @@ if 'relatorio_final' in st.session_state:
                 if "Sucesso" in resultado_git and dominio_cliente:
                     st.success(f"🎉 Implantação 100% concluída! O site já está no ar no domínio: http://{dominio_cliente}")
                     st.balloons()
+
+# --- INÍCIO DA NOVA INTEGRAÇÃO (Fora do primeiro botão) ---
+
+if 'relatorio_final' in st.session_state:
+    st.markdown("### 👔 Resultado do Briefing")
+    st.write(st.session_state['relatorio_final'])
+
+    st.markdown("---")
+    st.markdown("### 🚀 Implantação Automática no GitHub")
+    
+    # Mudei o texto de exemplo para instruir a digitar só o nome
+    dominio_input = st.text_input("Qual será o subdomínio? (ex: bayaradvogados)")
+    
+    if st.button("Gerar Código Institucional e Subir"):
+        with st.spinner("🤖 Gerando código de alta conversão e fazendo deploy..."):
+            import gerador_site
+            import github_deploy
+            import urllib.parse
+            
+            # --- A MÁGICA ACONTECE AQUI ---
+            # Transforma tudo em minúsculo, tira os espaços e cola o seu domínio base
+            dominio_completo = f"{dominio_input.strip().lower()}.epiverso.com" if dominio_input else ""
+            
+            rel_final = st.session_state['relatorio_final']
+            pasta_cliente = st.session_state['pasta_do_cliente']
+            url_insta = st.session_state['url_insta_tratada']
+            
+            html_gerado, caminhos_fotos = gerador_site.criar_html_institucional(rel_final, pasta_cliente)
+            
+            if not html_gerado:
+                st.error(caminhos_fotos) 
+            else:
+                st.success("Código HTML estruturado com sucesso!")
+                
+                nome_repo = urllib.parse.urlparse(url_insta).path.strip('/').replace('/', '-')
+                if not nome_repo: nome_repo = "novo-cliente"
+                
+                # Agora mandamos a variável "dominio_completo" para o script do GitHub
+                resultado_git = github_deploy.subir_para_github(html_gerado, caminhos_fotos, f"cliente-{nome_repo}", dominio_completo)
+                st.info(resultado_git)
+                
+                if "Sucesso" in resultado_git and dominio_completo:
+                    st.success(f"🎉 Implantação 100% concluída! A página institucional já está no ar no domínio: http://{dominio_completo}")
+                    st.balloons()
