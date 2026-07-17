@@ -4,7 +4,8 @@ import PIL.Image
 from google import genai
 from google.genai import types
 
-def gerar_briefing(pasta_base_cliente):
+# Agora a função recebe o iframe_pronto
+def gerar_briefing(pasta_base_cliente, iframe_pronto=""):
     CHAVE_API_GEMINI = os.environ.get("GEMINI_TOKEN")
     if not CHAVE_API_GEMINI:
         return "Erro: Token do Gemini não configurado no servidor."
@@ -42,7 +43,6 @@ Iframe completo conforme recebido: [Resposta]
     pasta_base_instagram = f"{pasta_base_cliente}/instagram_downloads_apify"
     pasta_base_google = f"{pasta_base_cliente}/google_reviews_extraidas"
 
-    # Busca os textos dinamicamente na pasta do cliente atual
     arquivos_txt_bio = glob.glob(f"{pasta_base_instagram}/*.txt")
     caminho_texto_perfil = arquivos_txt_bio[0] if arquivos_txt_bio else None
 
@@ -52,8 +52,8 @@ Iframe completo conforme recebido: [Resposta]
     caminhos_todas_imagens = glob.glob(f"{pasta_base_instagram}/*/*.jpg")
     caminhos_todas_imagens.sort()
 
-    if not caminhos_todas_imagens or not caminho_texto_perfil:
-        return "❌ Erro: Não foi possível encontrar os dados baixados. Verifique se o perfil existe e é aberto."
+    if not caminho_texto_perfil:
+        return "❌ Erro: Não foi possível encontrar os dados baixados do perfil (Bio). Verifique se o perfil existe."
 
     with open(caminho_texto_perfil, 'r', encoding='utf-8') as f:
         dados_do_perfil = f.read()
@@ -63,13 +63,16 @@ Iframe completo conforme recebido: [Resposta]
         with open(caminho_texto_reviews, 'r', encoding='utf-8') as f:
             dados_das_avaliacoes = f.read()
 
+    # INJEÇÃO DO IFRAME NO CONTEXTO DA IA
     texto_contexto = f"""
     === DADOS ESTRUTURAIS DO PERFIL ===
     {dados_do_perfil}
     === AVALIAÇÕES DO GOOGLE MAPS ===
     {dados_das_avaliacoes if dados_das_avaliacoes else "Nenhuma avaliação fornecida."}
+    === CÓDIGO DO IFRAME DO MAPA ===
+    {iframe_pronto if iframe_pronto else "Nenhum mapa foi fornecido."}
     
-    Abaixo estão as imagens dos últimos posts. Gere seu relatório.
+    Abaixo estão as imagens do cliente. Gere seu relatório.
     """
 
     conteudo_para_enviar = [texto_contexto]
