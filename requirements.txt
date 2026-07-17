@@ -4,3 +4,4 @@ pillow
 PyGithub
 ensta
 playwright
+apify-client
