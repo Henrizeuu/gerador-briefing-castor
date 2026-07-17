@@ -14,9 +14,8 @@ def criar_html_institucional(briefing_texto, pasta_base_cliente):
     caminhos_imagens = glob.glob(f"{pasta_instagram}/*/*.jpg")
     quantidade_fotos = len(caminhos_imagens[:10])
 
-    prompt_mestre = f"""Atue como um Desenvolvedor Front-end Sênior e Copywriter Especialista em Alta Conversão.
-A partir das informações do cliente fornecidas no final deste prompt, escreva o código completo de um Site Institucional Robusto e completo. Esqueça páginas simples; você deve entregar um design estruturado que passe autoridade de mercado (simulando múltiplas seções institucionais ricas) em um único arquivo index.html (com todo o CSS embutido na tag <style>).
-
+    prompt_mestre = f"""Atue como um Desenvolvedor Front-end Sênior e Copywriter Especialista em Landing Pages de Alta Conversão.
+A partir das informações do cliente fornecidas no final deste prompt, escreva o código completo de uma Landing Page em um único arquivo index.html (com todo o CSS embutido na tag <style>).
 REGRAS DE DESENVOLVIMENTO (SIGA RIGOROSAMENTE):
 Proibido Economizar Código: Escreva o script de fora a fora. Não abrevie o código, não crie módulos incompletos e não use placeholders como "adicione o resto aqui". Eu preciso da página 100% pronta para ir ao ar.
 Design e UX Guiados pelo Nicho: Adapte a identidade visual estritamente ao nicho da empresa.
@@ -25,28 +24,60 @@ Se for um nicho sério/corporativo (ex: advocacia, contabilidade), use formas re
 Se for intermediário (ex: estética, unhas, arquitetura), equilibre elegância com modernidade.
 Tecnologia e Animações Modernas: Utilize variáveis CSS no :root para facilitar alterações. Inclua animações fluidas, efeitos de hover avançados, bibliotecas como AOS.js para animações ao rolar a tela, e elementos dinâmicos (como galerias com carrossel infinito).
 Estrutura de Conversão: A página deve conter: Header fixo, Hero Section de impacto, Faixa de Benefícios, Sobre a Empresa/Profissional, Serviços/Produtos em formato de cards, Seção de Chamada para Ação (CTA) em destaque, Galeria de Fotos, FAQ (em tag <details>), Mapa (iframe) e Footer completo.
-ATENÇÃO AO PORTFÓLIO/GALERIA: Inclua uma seção de Galeria de Fotos/Portfólio APENAS se o nicho for visual. Se for um nicho estritamente corporativo (ex: advocacia, contabilidade), NÃO crie a seção de galeria.
-CAMINHOS DAS IMAGENS (MUITO IMPORTANTE): Na parte das fotos, você SEMPRE vai usar a seguinte estrutura de arquivos nas tags <img>: assets/imagem_1.jpg, assets/imagem_2.jpg, assets/imagem_3.jpg... até o limite de fotos disponíveis. NUNCA use .webp.
+ATENÇÃO AO PORTFÓLIO/GALERIA: Inclua uma seção de Galeria de Fotos/Portfólio APENAS se o nicho for visual (ex: pet shop, estética, arquitetura, reformas). Se for um nicho estritamente corporativo ou consultivo (ex: advocacia, contabilidade, seguros), NÃO crie a seção de galeria.
 SEO Técnico e Gatilhos: Inclua Meta Tags otimizadas, botões flutuantes e fixos do WhatsApp pulsantes, e estruturação semântica do HTML (h1, h2, seções claras).
-Assinatura Obrigatória da Agência: No Footer, inclua os direitos reservados do cliente e adicione a assinatura exata: Desenvolvido por <a href="https://epiverso.com" target="_blank" style="color: var(--secondary); font-weight: bold; text-decoration: none;">EPIVERSO</a>.
+Assinatura Obrigatória da Agência: No Footer, inclua os direitos reservados do cliente e adicione a assinatura exata: Desenvolvido por <a href="https://epiverso.com" target="_blank" style="color: var(--secondary); font-weight: bold; text-decoration: none;">EPIVERSO</a>. O link deve sempre abrir em uma nova aba e usar a cor secundária ou de destaque do tema para chamar a atenção.
+DADOS DO CLIENTE:
+Nome e Nicho: [Cole a resposta aqui]
+O Grande Problema: [Cole a resposta aqui]
+A Solução (Serviços): [Cole a resposta aqui]
+Diferencial: [Cole a resposta aqui]
+Autoridade (Sobre): [Cole a resposta aqui]
+Perguntas Frequentes FAQ: [Cole a resposta aqui]
+Identidade Visual/Cores: [Cole a resposta aqui]
+Contato/Endereço: [Cole a resposta aqui]
+Provas Sociais: [Cole a resposta aqui]
+iframe do mapa: [Cole a resposta aqui]
+quantas fotos no portfólio: [Cole a resposta aqui]
+Baseado nisso, gere o código completo de forma clean um site limpo e lindo e muito profissional!
+na parte das fotos você sempre vai colocar foto1.webp, foto2.webp...  que é como vou subir nessa ordem, sempre
+o site deve sempre ser extremamente responsivo, para celulares, tabletes e computadores
+traga sempre um design moderno fuja do que esta acostumado icones que não usa, tire essa cara de ia se inpire em sites que são lindos e modernos sem fugir do que ja foi proposto antes
 
 DADOS DO CLIENTE:
 {briefing_texto}
-quantas fotos no portfólio: {quantidade_fotos}
-
-Baseado nisso, gere o código completo de forma clean. Um site limpo, lindo e muito profissional!
-O site deve sempre ser extremamente responsivo para celulares, tablets e computadores. Traga um design moderno, fuja de ícones não utilizados e tire a "cara de IA". Inspire-se em páginas institucionais de alto nível."""
+quantas fotos no portfólio: {quantidade_fotos}"""
 
     configuracao = types.GenerateContentConfig(
-        temperature=0.6,
+        temperature=0.5, # Baixei um pouco para deixar a IA mais focada no código e menos criativa no bate-papo
         max_output_tokens=8192 
     )
 
-    resposta = client.models.generate_content(
-        model='gemini-2.5-flash',
-        contents=prompt_mestre,
-        config=configuracao
-    )
-
-    codigo_limpo = resposta.text.replace("```html", "").replace("```", "").strip()
-    return codigo_limpo, caminhos_imagens[:10]
+    try:
+        resposta = client.models.generate_content(
+            model='gemini-2.5-flash',
+            contents=prompt_mestre,
+            config=configuracao
+        )
+        
+        texto_bruto = resposta.text
+        
+        # --- FILTRO BLINDADO: Pega só o HTML e joga fora a conversa da IA ---
+        if "<!DOCTYPE html>" in texto_bruto:
+            codigo_limpo = texto_bruto[texto_bruto.find("<!DOCTYPE html>"):]
+        elif "<html" in texto_bruto:
+            codigo_limpo = texto_bruto[texto_bruto.find("<html"):]
+        else:
+            codigo_limpo = texto_bruto
+            
+        # Limpa as crases de formatação do Markdown que possam sobrar no final
+        codigo_limpo = codigo_limpo.replace("```html", "").replace("```", "").strip()
+        
+        # Trava de segurança: Se a IA não fechou o arquivo, nós fechamos
+        if not codigo_limpo.endswith("</html>"):
+            codigo_limpo += "\n</body>\n</html>"
+            
+        return codigo_limpo, caminhos_imagens[:10]
+        
+    except Exception as e:
+        return None, f"Erro na API do Gemini ao gerar o código: {str(e)}"
