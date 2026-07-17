@@ -1,7 +1,6 @@
 import os
 import urllib.request
 from apify_client import ApifyClient
-from playwright.sync_api import sync_playwright
 
 def rodar_extracao(url_insta, url_maps):
     # Extrai o nome do cliente a partir da URL do Instagram
@@ -17,18 +16,20 @@ def rodar_extracao(url_insta, url_maps):
     os.makedirs(pasta_insta, exist_ok=True)
     os.makedirs(pasta_maps, exist_ok=True)
 
+    # Inicializa o ApifyClient (Lembre-se de colocar seu token real)
+    client = ApifyClient("<YOUR_API_TOKEN>")
+
     # ---------------------------------------------------------
     # 1. EXTRAÇÃO DO INSTAGRAM (Híbrida: $0.30 + $0.99)
     # ---------------------------------------------------------
     try:
         print(f"🦫 Iniciando extração híbrida e otimizada do Instagram para: @{nome_cliente}")
-        client = ApifyClient("<YOUR_API_TOKEN>")
         
         # --- PASSO A: O scraper barato ($0.30) faz o trabalho braçal ---
         print("Executando scraper low-cost para dados base e mídia...")
         run_input_barato = {
             "usernames": [nome_cliente],
-            "postsPerProfile": 1, # Puxa só 1 post para extrair o bloco 'user' (nome e foto)
+            "postsPerProfile": 1,
             "proxy": {
                 "useApifyProxy": True,
                 "apifyProxyGroups": ["RESIDENTIAL"],
@@ -80,28 +81,45 @@ def rodar_extracao(url_insta, url_maps):
         print(f"Aviso na extração do Instagram com Apify: {e}")
 
     # ---------------------------------------------------------
-    # 2. EXTRAÇÃO DO GOOGLE MAPS (Usando Playwright)
+    # 2. EXTRAÇÃO DO GOOGLE MAPS (Usando Apify - vortex_data/google-maps)
     # ---------------------------------------------------------
     if url_maps:
         try:
-            print("🗺️ Iniciando extração de provas sociais do Google Maps...")
-            with sync_playwright() as p:
-                browser = p.chromium.launch(headless=True)
-                page = browser.new_page()
-                page.goto(url_maps)
-                
-                # Aguarda o carregamento do painel do Maps
-                page.wait_for_timeout(4000)
-                
-                # Extrai todo o texto da página para o Gemini garimpar as provas sociais
-                texto_pagina = page.locator("body").inner_text()
-                
-                with open(os.path.join(pasta_maps, "avaliacoes.txt"), "w", encoding="utf-8") as f:
-                    f.write(texto_pagina[:6000]) # Limite generoso para pegar várias avaliações
+            print("🗺️ Iniciando extração de avaliações do Google Maps via Apify...")
+            
+            # Prepara a entrada focada apenas em avaliações para cortar custos
+            run_input_maps = {
+                "startUrls": [{"url": url_maps}],
+                "maxReviewsPerPlace": 150, # Defina acima de 0 para obter as avaliações
+                "reviewsSort": "newest",
+                "extractContactsFromWebsite": False, # Desativado para evitar cobrança extra de enriquecimento de contatos
+            }
+            
+            # Roda o Actor
+            run_maps = client.actor("vortex_data/google-maps").call(run_input=run_input_maps)
+            
+            avaliacoes_texto = ""
+            
+            # Extrai os resultados e pega apenas os textos das avaliações
+            for item in client.dataset(run_maps.default_dataset_id).iterate_items():
+                reviews = item.get("reviews", [])
+                for rev in reviews:
+                    # Captura o nome do autor e o texto da avaliação
+                    autor = rev.get("author", "Anônimo")
+                    texto = rev.get("text", "")
+                    if texto:
+                        avaliacoes_texto += f"Autor: {autor}\nAvaliação: {texto}\n{'-'*40}\n"
+            
+            # Salva no arquivo de texto preservando a mesma lógica sua
+            caminho_avaliacoes = os.path.join(pasta_maps, "avaliacoes.txt")
+            with open(caminho_avaliacoes, "w", encoding="utf-8") as f:
+                if avaliacoes_texto:
+                    f.write(avaliacoes_texto[:6000]) # Mantido o seu limite de 6000 caracteres
+                else:
+                    f.write("Nenhuma avaliação encontrada ou texto vazio.")
                     
-                browser.close()
         except Exception as e:
             with open(os.path.join(pasta_maps, "avaliacoes.txt"), "w", encoding="utf-8") as f:
-                f.write(f"Erro ao extrair Maps: {str(e)}")
+                f.write(f"Erro ao extrair Maps via Apify: {str(e)}")
 
     return pasta_do_cliente
