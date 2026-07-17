@@ -1,6 +1,6 @@
 import os
 import urllib.request
-from ensta import Guest
+from apify_client import ApifyClient
 from playwright.sync_api import sync_playwright
 
 def rodar_extracao(url_insta, url_maps):
@@ -18,37 +18,66 @@ def rodar_extracao(url_insta, url_maps):
     os.makedirs(pasta_maps, exist_ok=True)
 
     # ---------------------------------------------------------
-    # 1. EXTRAÇÃO DO INSTAGRAM (Usando Ensta)
+    # 1. EXTRAÇÃO DO INSTAGRAM (Híbrida: $0.30 + $0.99)
     # ---------------------------------------------------------
     try:
-        print(f"🦫 Iniciando extração silenciosa do Instagram via Ensta para: @{nome_cliente}")
+        print(f"🦫 Iniciando extração híbrida e otimizada do Instagram para: @{nome_cliente}")
+        client = ApifyClient("<YOUR_API_TOKEN>")
         
-        # Inicializa o modo Guest (sem login)
-        guest = Guest()
-        perfil = guest.profile(nome_cliente)
+        # --- PASSO A: O scraper barato ($0.30) faz o trabalho braçal ---
+        print("Executando scraper low-cost para dados base e mídia...")
+        run_input_barato = {
+            "usernames": [nome_cliente],
+            "postsPerProfile": 1, # Puxa só 1 post para extrair o bloco 'user' (nome e foto)
+            "proxy": {
+                "useApifyProxy": True,
+                "apifyProxyGroups": ["RESIDENTIAL"],
+            }
+        }
+        run_barato = client.actor("sones/instagram-posts-scraper-lowcost").call(run_input=run_input_barato)
         
-        if perfil:
-            # Salva a Bio e dados principais
-            with open(os.path.join(pasta_insta, "dados_perfil.txt"), "w", encoding="utf-8") as f:
-                f.write(f"Nome: {perfil.full_name}\n")
-                f.write(f"Bio: {perfil.biography}\n")
-                f.write(f"Seguidores: {perfil.follower_count}\n")
-                f.write(f"Categoria: {perfil.category_name}\n")
+        dados_baratos = {}
+        for item in client.dataset(run_barato.default_dataset_id).iterate_items():
+            if "user" in item:
+                dados_baratos = item["user"]
+                break
                 
-            # Salva a foto de perfil em alta resolução
-            if perfil.profile_picture_url_hd:
-                urllib.request.urlretrieve(perfil.profile_picture_url_hd, os.path.join(pasta_insta, "foto_perfil.jpg"))
-            elif perfil.profile_picture_url:
-                urllib.request.urlretrieve(perfil.profile_picture_url, os.path.join(pasta_insta, "foto_perfil.jpg"))
+        nome_completo = dados_baratos.get("full_name", "")
+        foto_perfil_url = dados_baratos.get("profile_pic_url", "")
+        
+        # --- PASSO B: O scraper premium ($0.99) pega só o que o barato não consegue ---
+        print("Executando scraper premium apenas para Bio e métricas...")
+        run_input_caro = {
+            "profiles": [nome_cliente],
+            "scrape_profile_data": True,
+            "scrape_posts": False,
+            "scrape_reels": False,
+        }
+        run_caro = client.actor("hpix/instagram-scraper").call(run_input=run_input_caro)
+        
+        dados_caros = {}
+        for item in client.dataset(run_caro.default_dataset_id).iterate_items():
+            if item.get("profile"):
+                dados_caros = item["profile"]
+                break
+                
+        bio = dados_caros.get("biography", "")
+        seguidores = dados_caros.get("followers", 0)
+        categoria = dados_caros.get("business_category_name", "N/A")
 
-            # Observação: O modo Guest do Ensta extrai perfeitamente a Bio e a Foto. 
-            # Dependendo das atualizações recentes da API do Instagram, a extração de múltiplos 
-            # posts via Guest pode ser limitada. Se o analise_gemini.py precisar das imagens 
-            # dos últimos posts para a prova social, e o Ensta não trouxer, podemos 
-            # usar o Playwright (logo abaixo) para pegar as fotos também.
+        # Salva todos os dados combinados no arquivo
+        with open(os.path.join(pasta_insta, "dados_perfil.txt"), "w", encoding="utf-8") as f:
+            f.write(f"Nome: {nome_completo}\n")
+            f.write(f"Bio: {bio}\n")
+            f.write(f"Seguidores: {seguidores}\n")
+            f.write(f"Categoria: {categoria}\n")
+            
+        # Baixa a foto de perfil usando o link do scraper mais barato
+        if foto_perfil_url:
+            urllib.request.urlretrieve(foto_perfil_url, os.path.join(pasta_insta, "foto_perfil.jpg"))
 
     except Exception as e:
-        print(f"Aviso na extração do Instagram com Ensta: {e}")
+        print(f"Aviso na extração do Instagram com Apify: {e}")
 
     # ---------------------------------------------------------
     # 2. EXTRAÇÃO DO GOOGLE MAPS (Usando Playwright)
