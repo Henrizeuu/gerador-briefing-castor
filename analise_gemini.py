@@ -4,7 +4,6 @@ import PIL.Image
 from google import genai
 from google.genai import types
 
-# Agora a função recebe o iframe_pronto
 def gerar_briefing(pasta_base_cliente, iframe_pronto=""):
     CHAVE_API_GEMINI = os.environ.get("GEMINI_TOKEN")
     if not CHAVE_API_GEMINI:
@@ -13,31 +12,34 @@ def gerar_briefing(pasta_base_cliente, iframe_pronto=""):
     client = genai.Client(api_key=CHAVE_API_GEMINI)
 
     instrucoes_do_seu_gem = """
-    Seu Papel: Você é um Analista de Negócios Sênior e Estrategista de Marketing Digital. Sua especialidade é analisar imagens (prints de perfis do Instagram, posts, stories em destaque, avaliações do Google e prints de conversas) para extrair informações valiosas de negócios locais e prestadores de serviço.
-Sua Tarefa: Sempre que eu enviar um ou mais prints referentes a um cliente, você deve analisar o conteúdo visual e textual dessas imagens e preencher o questionário de briefing abaixo com o máximo de riqueza de detalhes e em um tom profissional.
-Diretrizes de Análise:
-
-Nome e Nicho: Extraia da Bio, do @ do perfil ou da logotipo.
-O Grande Problema: Deduza com base no nicho e nos problemas que os posts do perfil prometem resolver. (Ex: se for um encanador, o problema é vazamento urgente e dor de cabeça com infiltração).
-A Solução (Serviços): Liste os serviços que aparecem nos posts, nos destaques do Instagram ou na link tree da bio.
-Diferencial: Busque por termos de destaque na Bio ou nas artes (ex: "Atendimento 24h", "Técnica Exclusiva", "Há 10 anos no mercado").
-Autoridade (Sobre): Resuma a história do profissional caso haja algum post "Sobre mim", ou cite sua formação e tempo de experiência, se visível. Se não houver, crie um texto profissional baseando-se no tempo de mercado deduzido.
-Perguntas Frequentes FAQ: Baseado no nicho e nos comentários dos posts, formule 3 a 4 perguntas e respostas padrão que os clientes costumam ter (ex: aceita cartão? qual o prazo? atende a domicílio?).
-Identidade Visual/Cores: Analise a paleta de cores predominante no feed do Instagram, na logotipo e nos destaques. Descreva as cores em HEX (se possível) e o estilo (ex: minimalista, vibrante, escuro, elegante).
-Provas Sociais: Resuma os elogios encontrados nas avaliações do Google ou nos comentários dos prints enviados. Transforme isso em 2 ou 3 depoimentos curtos e persuasivos.
-Formato de Saída Obrigatório:
-Gere apenas o questionário preenchido, seguindo exatamente os tópicos abaixo, prontos para serem copiados e colados no gerador de Landing Pages:
-
-Nome e Nicho: [Resposta]
-O Grande Problema: [Resposta]
-A Solução (Serviços): [Resposta]
-Diferencial: [Resposta]
-Autoridade (Sobre): [Resposta]
-FAQ: [Resposta]
-Identidade Visual/Cores: [Resposta]
-Provas Sociais com nomes dos clientes conforme recebido: [Resposta]
-Contato/endereço: [resposta]
-Iframe completo conforme recebido: [Resposta]
+    Você é um Analista de Negócios Sênior e Copywriter de Alta Conversão.
+    Analise os dados do cliente e crie os textos persuasivos para um site institucional.
+    
+    REGRA DE OURO: Retorne ÚNICA E EXCLUSIVAMENTE um objeto JSON válido, sem NENHUMA formatação markdown (sem ```json), sem texto antes e sem texto depois. O sistema quebrará se você retornar qualquer coisa que não seja o JSON puro.
+    
+    Estrutura exata do JSON que você deve retornar:
+    {
+      "nome_empresa": "[Extraia o nome]",
+      "nicho": "[Qual é a área de atuação]",
+      "hero_headline": "[Uma frase de impacto curta e forte para o topo do site baseada no grande problema do cliente]",
+      "hero_subheadline": "[Um parágrafo curto explicando como a empresa resolve esse problema]",
+      "diferencial": "[O maior diferencial em 5 palavras]",
+      "sobre_autoridade": "[Um parágrafo resumindo a autoridade e experiência]",
+      "servico_1": "[Nome de um serviço principal]",
+      "servico_2": "[Nome do segundo serviço principal]",
+      "servico_3": "[Nome do terceiro serviço principal]",
+      "faq_1_p": "[Pergunta frequente 1]",
+      "faq_1_r": "[Resposta 1]",
+      "faq_2_p": "[Pergunta frequente 2]",
+      "faq_2_r": "[Resposta 2]",
+      "faq_3_p": "[Pergunta frequente 3]",
+      "faq_3_r": "[Resposta 3]",
+      "depoimento_1_nome": "[Nome de um cliente do Google Maps]",
+      "depoimento_1_texto": "[Resumo do elogio 1]",
+      "depoimento_2_nome": "[Nome de outro cliente]",
+      "depoimento_2_texto": "[Resumo do elogio 2]",
+      "iframe_mapa": "[Cole o CÓDIGO DO IFRAME DO MAPA fornecido abaixo EXATAMENTE como recebeu]"
+    }
     """
 
     pasta_base_instagram = f"{pasta_base_cliente}/instagram_downloads_apify"
@@ -45,15 +47,13 @@ Iframe completo conforme recebido: [Resposta]
 
     arquivos_txt_bio = glob.glob(f"{pasta_base_instagram}/*.txt")
     caminho_texto_perfil = arquivos_txt_bio[0] if arquivos_txt_bio else None
-
     arquivos_txt_reviews = glob.glob(f"{pasta_base_google}/*.txt")
     caminho_texto_reviews = arquivos_txt_reviews[0] if arquivos_txt_reviews else None
-
-    caminhos_todas_imagens = glob.glob(f"{pasta_base_instagram}/*/*.jpg")
+    caminhos_todas_imagens = glob.glob(f"{pasta_base_instagram}/*.jpg")
     caminhos_todas_imagens.sort()
 
     if not caminho_texto_perfil:
-        return "❌ Erro: Não foi possível encontrar os dados baixados do perfil (Bio). Verifique se o perfil existe."
+        return "❌ Erro: Não foi possível encontrar os dados baixados do perfil (Bio)."
 
     with open(caminho_texto_perfil, 'r', encoding='utf-8') as f:
         dados_do_perfil = f.read()
@@ -63,7 +63,6 @@ Iframe completo conforme recebido: [Resposta]
         with open(caminho_texto_reviews, 'r', encoding='utf-8') as f:
             dados_das_avaliacoes = f.read()
 
-    # INJEÇÃO DO IFRAME NO CONTEXTO DA IA
     texto_contexto = f"""
     === DADOS ESTRUTURAIS DO PERFIL ===
     {dados_do_perfil}
@@ -71,30 +70,23 @@ Iframe completo conforme recebido: [Resposta]
     {dados_das_avaliacoes if dados_das_avaliacoes else "Nenhuma avaliação fornecida."}
     === CÓDIGO DO IFRAME DO MAPA ===
     {iframe_pronto if iframe_pronto else "Nenhum mapa foi fornecido."}
-    
-    Abaixo estão as imagens do cliente. Gere seu relatório.
     """
 
     conteudo_para_enviar = [texto_contexto]
-
     caminho_foto_perfil = os.path.join(pasta_base_instagram, "foto_perfil.jpg")
     if os.path.exists(caminho_foto_perfil):
         conteudo_para_enviar.append(PIL.Image.open(caminho_foto_perfil))
 
     for img_path in caminhos_todas_imagens[:21]:
         try:
-             shortcode = os.path.basename(os.path.dirname(img_path))
-             caminho_desc = os.path.join(pasta_base_instagram, shortcode, "descricao.txt")
-             if os.path.exists(caminho_desc):
-                 with open(caminho_desc, 'r', encoding='utf-8') as f_desc:
-                     conteudo_para_enviar.append(f"Legenda: {f_desc.read()}")
              conteudo_para_enviar.append(PIL.Image.open(img_path))
         except Exception:
              pass
 
     configuracao = types.GenerateContentConfig(
         system_instruction=instrucoes_do_seu_gem,
-        temperature=0.7
+        temperature=0.2, # Super baixo para focar apenas em extrair e formatar JSON
+        response_mime_type="application/json" # Força a API a devolver apenas JSON
     )
 
     resposta = client.models.generate_content(
