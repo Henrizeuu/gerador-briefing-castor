@@ -24,9 +24,14 @@ if st.button("Gerar Análise Profissional"):
                 url_insta_tratada = f"https://www.instagram.com/{url_insta_tratada}/"
             
             url_maps_tratada = maps_input.strip() if maps_input else ""
+            iframe_pronto = "" # Inicializa a variável do Iframe
+            
             if url_maps_tratada and not url_maps_tratada.startswith("http"):
                 termo_codificado = urllib.parse.quote(url_maps_tratada)
                 url_maps_tratada = f"https://www.google.com/maps/search/?api=1&query={termo_codificado}"
+                
+                # FABRICA O IFRAME HTML AQUI
+                iframe_pronto = f'<iframe src="https://maps.google.com/maps?q={termo_codificado}&t=&z=14&ie=UTF8&iwloc=&output=embed" width="100%" height="400" style="border:0;" allowfullscreen="" loading="lazy"></iframe>'
 
             # Chama o nosso novo scraper nativo
             pasta_do_cliente = scraper_dados.rodar_extracao(url_insta_tratada, url_maps_tratada)
@@ -38,7 +43,8 @@ if st.button("Gerar Análise Profissional"):
             st.success("Dados extraídos! O cérebro digital está analisando...")
             
         with st.spinner('🧠 Processando Alta Costura Digital e Prova Social...'):
-            relatorio_final = analise_gemini.gerar_briefing(pasta_do_cliente)
+            # Envia o iframe pronto para o Gemini não precisar alucinar
+            relatorio_final = analise_gemini.gerar_briefing(pasta_do_cliente, iframe_pronto)
             
             st.session_state['relatorio_final'] = relatorio_final
             st.session_state['pasta_do_cliente'] = pasta_do_cliente
@@ -46,7 +52,6 @@ if st.button("Gerar Análise Profissional"):
 
 # --- INÍCIO DA NOVA INTEGRAÇÃO (Fora do primeiro botão) ---
 
-# Só exibe essa parte se o briefing já estiver sido gerado e salvo na memória
 if 'relatorio_final' in st.session_state:
     st.markdown("### 👔 Resultado do Briefing")
     st.write(st.session_state['relatorio_final'])
@@ -56,14 +61,12 @@ if 'relatorio_final' in st.session_state:
     
     dominio_cliente = st.text_input("Qual será o subdomínio? (ex: cliente.epiverso.com)")
     
-    # Botão Etapa 2: Gerar Site e Subir pro GitHub
     if st.button("Gerar Código Institucional e Subir"):
         with st.spinner("🤖 Gerando código de alta conversão e fazendo deploy..."):
             import gerador_site
             import github_deploy
             import urllib.parse
             
-            # Recupera as variáveis da memória
             rel_final = st.session_state['relatorio_final']
             pasta_cliente = st.session_state['pasta_do_cliente']
             url_insta = st.session_state['url_insta_tratada']
@@ -71,11 +74,10 @@ if 'relatorio_final' in st.session_state:
             html_gerado, caminhos_fotos = gerador_site.criar_html_institucional(rel_final, pasta_cliente)
             
             if not html_gerado:
-                st.error(caminhos_fotos) # Exibe mensagem de erro se falhar
+                st.error(caminhos_fotos) 
             else:
                 st.success("Código HTML estruturado com sucesso!")
                 
-                # Limpa o nome do cliente para criar o repo (ex: @joao -> joao)
                 nome_repo = urllib.parse.urlparse(url_insta).path.strip('/').replace('/', '-')
                 if not nome_repo: nome_repo = "novo-cliente"
                 
@@ -84,4 +86,4 @@ if 'relatorio_final' in st.session_state:
                 
                 if "Sucesso" in resultado_git and dominio_cliente:
                     st.success(f"🎉 Implantação 100% concluída! O site já está no ar no domínio: http://{dominio_cliente}")
-                    st.balloons() # Solta balões na tela para comemorar a automação perfeita
+                    st.balloons()
