@@ -18,7 +18,7 @@ def rodar_extracao(url_insta, url_maps):
     client = ApifyClient("<YOUR_API_TOKEN>")
 
     # ---------------------------------------------------------
-    # 1. EXTRAÇÃO DO INSTAGRAM (Híbrida com Fotos do Feed)
+    # 1. EXTRAÇÃO DO INSTAGRAM (Híbrida: $0.30 + $0.99)
     # ---------------------------------------------------------
     try:
         print(f"🦫 Iniciando extração do Instagram para: @{nome_cliente}")
@@ -26,7 +26,7 @@ def rodar_extracao(url_insta, url_maps):
         # --- PASSO A: O scraper barato ($0.30) faz o trabalho braçal (Fotos + Legendas) ---
         run_input_barato = {
             "usernames": [nome_cliente],
-            "postsPerProfile": 12, # Baixa 12 posts para garantir material pro portfólio
+            "postsPerProfile": 12, # Garante as fotos do portfólio
             "proxy": {
                 "useApifyProxy": True,
                 "apifyProxyGroups": ["RESIDENTIAL"],
@@ -37,24 +37,22 @@ def rodar_extracao(url_insta, url_maps):
         nome_completo, foto_perfil_url = "", ""
         
         for item in client.dataset(run_barato.default_dataset_id).iterate_items():
-            # Captura dados principais do usuário (vem embutido nos posts)
+            # Puxa o nome e foto de perfil do autor
             if "user" in item and not nome_completo:
                 nome_completo = item["user"].get("full_name", "")
                 foto_perfil_url = item["user"].get("profile_pic_url", "")
             
-            # Recria a estrutura de pastas por shortcode para as imagens e legendas
+            # Recria a estrutura de pastas por shortcode
             if "code" in item:
                 shortcode = item["code"]
                 pasta_post = os.path.join(pasta_insta, shortcode)
                 os.makedirs(pasta_post, exist_ok=True)
                 
-                # Salva a legenda
                 legenda = item.get("caption", {}).get("text", "") if item.get("caption") else ""
                 if legenda:
                     with open(os.path.join(pasta_post, "descricao.txt"), "w", encoding="utf-8") as f:
                         f.write(legenda)
                 
-                # Extrai a URL da imagem (seja post único ou carrossel)
                 img_url = ""
                 if item.get("carousel_media") and len(item["carousel_media"]) > 0:
                     img_url = item["carousel_media"][0].get("image_versions2", {}).get("candidates", [{}])[0].get("url", "")
@@ -78,26 +76,34 @@ def rodar_extracao(url_insta, url_maps):
         
         dados_caros = {}
         for item in client.dataset(run_caro.default_dataset_id).iterate_items():
-            if item.get("profile"):
-                dados_caros = item["profile"]
+            # A correção está aqui: Lê a estrutura correta do scraper
+            if item.get("kind") == "profile":
+                dados_caros = item.get("data", {})
                 break
-                
-        bio = dados_caros.get("biography", "")
-        seguidores = dados_caros.get("followers", 0)
-        categoria = dados_caros.get("business_category_name", "N/A")
+            elif "biography" in item:
+                dados_caros = item
+                break
 
-        # Salva o arquivo de texto principal do perfil
+        # Extração blindada
+        bio = dados_caros.get("biography", "") or dados_caros.get("bio", "")
+        seguidores = dados_caros.get("followers", 0) or dados_caros.get("followersCount", 0) or dados_caros.get("follower_count", 0)
+        categoria = dados_caros.get("business_category_name", "N/A") or dados_caros.get("category_name", "N/A")
+
+        # Escreve o txt estruturado
         with open(os.path.join(pasta_insta, "dados_perfil.txt"), "w", encoding="utf-8") as f:
             f.write(f"Nome: {nome_completo}\nBio: {bio}\nSeguidores: {seguidores}\nCategoria: {categoria}\n")
             
         if foto_perfil_url:
-            urllib.request.urlretrieve(foto_perfil_url, os.path.join(pasta_insta, "foto_perfil.jpg"))
+            try:
+                urllib.request.urlretrieve(foto_perfil_url, os.path.join(pasta_insta, "foto_perfil.jpg"))
+            except:
+                pass
 
     except Exception as e:
         print(f"Aviso na extração do Instagram com Apify: {e}")
 
     # ---------------------------------------------------------
-    # 2. EXTRAÇÃO DO GOOGLE MAPS (Playwright Original e Intacto)
+    # 2. EXTRAÇÃO DO GOOGLE MAPS (Playwright intacto)
     # ---------------------------------------------------------
     if url_maps:
         try:
