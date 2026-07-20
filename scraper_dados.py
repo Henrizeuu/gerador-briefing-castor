@@ -21,7 +21,7 @@ def rodar_extracao(url_insta, url_maps):
     """
     Função principal que orquestra o scraping via Apify e salva os dados.
     """
-    print(f"🦫 INICIANDO EXTRAÇÃO: Instagram={url_insta} | Maps={url_maps}")
+    print(f" INICIANDO EXTRAÇÃO: Instagram={url_insta} | Maps={url_maps}")
     
     APIFY_TOKEN = os.environ.get("APIFY_API_TOKEN")
     if not APIFY_TOKEN:
@@ -115,23 +115,23 @@ def rodar_extracao(url_insta, url_maps):
     texto_completo_maps = ""
     
     if not url_maps or url_maps.strip() == "":
-        print("️ URL do Maps não fornecida, criando arquivo vazio...")
+        print("⚠️ URL do Maps não fornecida, criando arquivo vazio...")
         texto_completo_maps = "Nenhuma informação do Google Maps fornecida."
     else:
         # USANDO O ACTOR CORRETO: compass/crawler-google-places
         run_input_maps = {
             "startUrls": [{"url": url_maps}],
             "language": "pt-BR",
-            "maxReviews": 50,  # Quantidade de reviews
+            "maxReviews": 50,
             "reviewsSort": "highestRanking",
             "scrapeReviewsPersonalData": True,
-            "scrapeContacts": True,  # ️ IMPORTANTE: Extrai telefone/site
+            "scrapeContacts": True,
             "maxImages": 0,
             "scrapeSocialMediaProfiles": {
-                "facebooks": False, 
-                "instagrams": False, 
-                "youtubes": False, 
-                "tiktoks": False, 
+                "facebooks": False,
+                "instagrams": False,
+                "youtubes": False,
+                "tiktoks": False,
                 "twitters": False
             },
         }
@@ -139,10 +139,9 @@ def rodar_extracao(url_insta, url_maps):
         print(f"🚀 Iniciando scraper do Maps com URL: {url_maps}")
         
         try:
-            # ACTOR CORRETO AQUI!
             run_maps = client.actor("compass/crawler-google-places").call(
-                run_input=run_input_maps, 
-                wait_secs=180  # 3 minutos de timeout
+                run_input=run_input_maps,
+                wait_secs=180
             )
             
             print(f"✅ Run do Maps finalizada. Dataset ID: {run_maps.default_dataset_id}")
@@ -150,7 +149,7 @@ def rodar_extracao(url_insta, url_maps):
             dados = list(client.dataset(run_maps.default_dataset_id).iterate_items())
             
             if not dados:
-                print("️ Nenhum dado retornado do Maps.")
+                print("⚠️ Nenhum dado retornado do Maps.")
                 texto_completo_maps = "Nenhum dado foi extraído do Google Maps."
             else:
                 empresa = dados[0]
@@ -162,13 +161,13 @@ def rodar_extracao(url_insta, url_maps):
                 texto_completo_maps += f"Telefone: {empresa.get('phone', 'N/A')}\n"
                 texto_completo_maps += f"Website: {empresa.get('website', 'N/A')}\n"
                 texto_completo_maps += f"Avaliação Geral: {empresa.get('totalScore', 0)} estrelas ({empresa.get('reviewsCount', 0)} avaliações)\n\n"
-    
+
                 texto_completo_maps += "=== AVALIAÇÕES DE CLIENTES (PROVA SOCIAL) ===\n"
                 reviews = empresa.get('reviews', [])
                 if not reviews:
                     texto_completo_maps += "Nenhuma avaliação textual encontrada no Maps.\n"
                 
-                for rev in reviews[:20]:  # Limita a 20 reviews
+                for rev in reviews[:20]:
                     autor = rev.get('author', 'Anônimo')
                     texto_rev = rev.get('text', 'Sem texto')
                     data_rev = rev.get('publishedAt', '')
@@ -179,7 +178,7 @@ def rodar_extracao(url_insta, url_maps):
             import traceback
             traceback.print_exc()
             texto_completo_maps = f"Erro ao extrair dados do Google Maps: {str(e)}"
-    
+
     with open(f"{pasta_maps}/01_dados_maps.txt", 'w', encoding='utf-8') as f:
         f.write(texto_completo_maps)
     print("✅ Maps concluído!")
