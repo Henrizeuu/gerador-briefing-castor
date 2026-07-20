@@ -1,146 +1,132 @@
 import os
-import urllib.request
 import urllib.parse
+import requests
 from apify_client import ApifyClient
 
-def rodar_extracao(url_insta, url_maps):
-    nome_cliente = url_insta.strip('/').split('/')[-1]
-    if not nome_cliente:
-        nome_cliente = "cliente_novo"
+def rodar_extracao(url_insta_tratada, url_maps_tratada):
+    """
+    Executa a extração de dados do Instagram e Google Maps via Apify.
+    Cria as pastas estruturadas e faz o download de bio, reviews e imagens.
+    """
+    CHAVE_API_APIFY = os.environ.get("APIFY_TOKEN")
+    if not CHAVE_API_APIFY:
+        return "Erro: Token da Apify (APIFY_TOKEN) não configurado."
         
-    pasta_do_cliente = f"./clientes/{nome_cliente}"
-    pasta_insta = os.path.join(pasta_do_cliente, "instagram_downloads_apify")
-    pasta_maps = os.path.join(pasta_do_cliente, "google_reviews_extraidas")
+    client = ApifyClient(CHAVE_API_APIFY)
     
-    os.makedirs(pasta_insta, exist_ok=True)
-    os.makedirs(pasta_maps, exist_ok=True)
+    # 1. Estruturação de Pastas
+    # Extrai o username limpo da URL do Instagram para nomear a pasta do cliente
+    username_insta = url_insta_tratada.strip('/').split('/')[-1]
+    pasta_base_cliente = f"cliente_{username_insta}"
+    
+    pasta_instagram = f"{pasta_base_cliente}/instagram_downloads_apify"
+    pasta_google = f"{pasta_base_cliente}/google_reviews_extraidas"
+    
+    os.makedirs(pasta_instagram, exist_ok=True)
+    os.makedirs(pasta_google, exist_ok=True)
 
-    CHAVE_APIFY = os.environ.get("APIFY_TOKEN")
-    client = ApifyClient(CHAVE_APIFY)
-
-    # ---------------------------------------------------------
-    # 1. EXTRAÇÃO DO INSTAGRAM (USANDO O OFICIAL BLINDADO - 1 REQUISIÇÃO)
-    # ---------------------------------------------------------
+    # ==========================================
+    # 2. SCRAPER DO INSTAGRAM (Bio e Posts)
+    # Ator: coderx/instagram-profile-scraper-bio-posts
+    # ==========================================
     try:
-        print(f"🦫 Iniciando extração do Instagram (Scraper Oficial) para: {url_insta}")
-
-        # --- FAZ APENAS 1 CHAMADA PARA ECONOMIZAR CRÉDITOS ---
-        run_input_perfil = {
-            "resultsType": "details",
-            "directUrls": [url_insta],
+        # O ator exige um array de usernames[cite: 5, 6]
+        run_input_insta = {
+            "usernames": [username_insta]
         }
         
-        run_perfil = client.actor("apify/instagram-scraper").call(run_input=run_input_perfil)
+        # Chama o ator PP60E1JIfagMaQxIP[cite: 6]
+        run_insta = client.actor("PP60E1JIfagMaQxIP").call(run_input=run_input_insta)
         
-        nome_completo, bio, seguidores, categoria, foto_perfil_url = "", "", 0, "N/A", ""
+        for item in client.dataset(run_insta["defaultDatasetId"]).iterate_items():
+            # Salvar Bio e informações textuais
+            caminho_bio = os.path.join(pasta_instagram, "bio_perfil.txt")
+            with open(caminho_bio, 'w', encoding='utf-8') as f:
+                f.write(f"Nome Completo: {item.get('fullName', '')}\n")
+                f.write(f"Username: {item.get('username', '')}\n")
+                f.write(f"Bio: {item.get('biography', '')}\n")
+                f.write(f"Seguidores: {item.get('followersCount', '')}\n")
+                f.write(f"Link na Bio: {item.get('external_url', '')}\n")
 
-        for info in client.dataset(run_perfil.default_dataset_id).iterate_items():
-            
-            # --- SALVA OS DADOS DO PERFIL ---
-            nome_completo = info.get('fullName', 'N/A')
-            bio = info.get('biography', 'N/A')
-            seguidores = info.get('followersCount', 0)
-            categoria = info.get('businessCategoryName', 'N/A')
-            foto_perfil_url = info.get('profilePicUrlHD') or info.get('profilePicUrl')
-
-            with open(os.path.join(pasta_insta, "dados_perfil.txt"), "w", encoding="utf-8") as f:
-                f.write(f"Nome: {nome_completo}\nBio: {bio}\nSeguidores: {seguidores}\nCategoria: {categoria}\n")
-
+            # Baixar Foto de Perfil (Alta Resolução se disponível)
+            foto_perfil_url = item.get("hdProfilePicUrl") or item.get("profilePicUrl")
             if foto_perfil_url:
                 try:
-                    req = urllib.request.Request(foto_perfil_url, headers={'User-Agent': 'Mozilla/5.0'})
-                    with urllib.request.urlopen(req) as response, open(os.path.join(pasta_insta, "foto_perfil.jpg"), 'wb') as out_file:
-                        out_file.write(response.read())
+                    r = requests.get(foto_perfil_url, timeout=10)
+                    with open(os.path.join(pasta_instagram, "foto_perfil.jpg"), 'wb') as f:
+                        f.write(r.content)
                 except Exception as e:
-                    print(f"Aviso ao baixar foto de perfil: {e}")
+                    print(f"Aviso: Não foi possível baixar a foto de perfil: {e}")
 
-            # --- EXTRAI OS POSTS DA MESMA REQUISIÇÃO (latestPosts) ---
-            ultimos_posts = info.get('latestPosts', [])
-            
-            for post in ultimos_posts:
-                shortcode = post.get('shortCode')
-                if not shortcode: continue
-
-                pasta_post = os.path.join(pasta_insta, shortcode)
-                os.makedirs(pasta_post, exist_ok=True)
-
-                legenda = post.get('caption', '')
-                if legenda:
-                    with open(os.path.join(pasta_post, "descricao.txt"), "w", encoding="utf-8") as f:
-                        f.write(legenda)
-
-                # Lógica de filtragem de imagens do seu script original
-                links_para_baixar = []
-                if 'childPosts' in post and post['childPosts']:
-                    for child in post['childPosts']:
-                        if 'videoUrl' not in child or not child['videoUrl']:
-                            if 'displayUrl' in child and child['displayUrl']:
-                                links_para_baixar.append(child['displayUrl'])
-                elif 'videoUrl' not in post or not post['videoUrl']:
-                    if 'displayUrl' in post:
-                        links_para_baixar.append(post['displayUrl'])
-
-                if links_para_baixar:
+            # Baixar as últimas imagens do feed[cite: 5]
+            posts = item.get("latestPosts", [])
+            contador_fotos = 1
+            for post in posts:
+                if contador_fotos > 20: # Limita para não sobrecarregar o Gemini com contexto inútil
+                    break
+                    
+                img_url = post.get("displayUrl")
+                if img_url:
                     try:
-                        # Baixa apenas a primeira imagem do post
-                        req = urllib.request.Request(links_para_baixar[0], headers={'User-Agent': 'Mozilla/5.0'})
-                        with urllib.request.urlopen(req) as response, open(os.path.join(pasta_post, "imagem.jpg"), 'wb') as out_file:
-                            out_file.write(response.read())
+                        r = requests.get(img_url, timeout=10)
+                        # Salva as fotos nomeadas em ordem
+                        with open(os.path.join(pasta_instagram, f"foto{contador_fotos}.jpg"), 'wb') as f:
+                            f.write(r.content)
+                        contador_fotos += 1
                     except Exception as e:
-                        pass
-            
-            break # Garante que lê só a linha principal e finaliza
-
+                        continue
+                        
     except Exception as e:
-        print(f"Aviso na extração do Instagram via Apify Oficial: {e}")
+        return f"Erro na extração do Instagram: {str(e)}"
 
-    # ---------------------------------------------------------
-    # 2. EXTRAÇÃO DO GOOGLE MAPS (EXATAMENTE COMO VOCÊ MANDOU)
-    # ---------------------------------------------------------
-    if url_maps:
+    # ==========================================
+    # 3. SCRAPER DO GOOGLE MAPS (Reviews e Contatos)
+    # Ator: vortex_data/google-maps
+    # ==========================================
+    if url_maps_tratada:
         try:
-            print("🗺️ Iniciando extração de provas sociais do Google Maps via Apify...")
-
-            run_input_maps = {
-                "maxCrawledPlacesPerSearch": 1,
-                "maxReviewsPerPlace": 15,
-                "reviewsSort": "newest",
-                "language": "pt"
-            }
-
-            if url_maps.startswith("http"):
-                run_input_maps["startUrls"] = [{"url": url_maps}]
+            # Prepara a entrada. O Ator aceita URLs diretas através do parâmetro startUrls[cite: 7]
+            if url_maps_tratada.startswith("http"):
+                run_input_maps = {
+                    "startUrls": [{"url": url_maps_tratada}],
+                    "maxReviewsPerPlace": 20 # Limite de reviews para análise[cite: 7]
+                }
             else:
-                if "," in url_maps:
-                    partes = url_maps.split(",")
-                    run_input_maps["searchStringsArray"] = [partes[0].strip()]
-                    run_input_maps["locationQueries"] = [partes[1].strip() + ", Brasil"]
-                else:
-                    run_input_maps["searchStringsArray"] = [url_maps]
-                    run_input_maps["locationQueries"] = ["Brasil"]
+                # Se o usuário digitou "Empresa, Cidade", criamos uma URL de busca exata para injetar no startUrls[cite: 7]
+                termo_codificado = urllib.parse.quote(url_maps_tratada)
+                url_busca_maps = f"https://www.google.com/maps/search/?api=1&query={termo_codificado}"
+                run_input_maps = {
+                    "startUrls": [{"url": url_busca_maps}],
+                    "maxReviewsPerPlace": 20
+                }
 
+            # Chama o ator AabCualFIriz3X6Fs[cite: 7]
             run_maps = client.actor("AabCualFIriz3X6Fs").call(run_input=run_input_maps)
-
-            texto_avaliacoes = ""
             
-            for item in client.dataset(run_maps.default_dataset_id).iterate_items():
-                nome_empresa = item.get("title", "Empresa Alvo")
-                nota = item.get("totalScore", "Sem nota")
-                reviews = item.get("reviews", [])
-
-                texto_avaliacoes += f"Empresa: {nome_empresa} (Nota: {nota})\n\n"
-
-                for rev in reviews:
-                    autor = rev.get("author", "Anônimo")
-                    texto_review = rev.get("text", "")
-                    if texto_review:
-                        texto_avaliacoes += f"{autor}: {texto_review}\n---\n"
-
-            with open(os.path.join(pasta_maps, "avaliacoes.txt"), "w", encoding="utf-8") as f:
-                f.write(texto_avaliacoes[:6000] if texto_avaliacoes else "Nenhuma avaliação com texto encontrada.")
-
+            for item in client.dataset(run_maps["defaultDatasetId"]).iterate_items():
+                caminho_maps = os.path.join(pasta_google, "dados_e_reviews.txt")
+                with open(caminho_maps, 'w', encoding='utf-8') as f:
+                    # Extrai identidade do local e contatos[cite: 7]
+                    f.write(f"Título: {item.get('title', '')}\n")
+                    f.write(f"Categoria: {item.get('categoryName', '')}\n")
+                    f.write(f"Endereço: {item.get('address', '')}\n")
+                    f.write(f"Telefone: {item.get('phone', '')}\n")
+                    f.write(f"Website: {item.get('website', '')}\n")
+                    f.write(f"Nota Total (Score): {item.get('totalScore', '')}\n")
+                    f.write(f"Total de Avaliações: {item.get('reviewsCount', '')}\n")
+                    
+                    # Extrai os textos de reviews[cite: 7]
+                    reviews = item.get("reviews", [])
+                    f.write("\n=== AVALIAÇÕES (PROVA SOCIAL) ===\n")
+                    for rev in reviews:
+                        texto_review = rev.get('text', '')
+                        if texto_review: # Filtra avaliações vazias (apenas estrelas)
+                            f.write(f"\"{texto_review}\" - {rev.get('author', '')}\n")
+                
+                # Encerra no primeiro resultado válido encontrado
+                break
+                
         except Exception as e:
-            with open(os.path.join(pasta_maps, "avaliacoes.txt"), "w", encoding="utf-8") as f:
-                f.write(f"Erro ao extrair Maps via Apify: {str(e)}")
+            return f"Erro na extração do Google Maps: {str(e)}"
 
-    return pasta_do_cliente
+    return pasta_base_cliente
