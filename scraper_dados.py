@@ -27,13 +27,13 @@ def rodar_extracao(url_insta, url_maps):
         run_input_barato = {
             "usernames": [nome_cliente],
             "postsPerProfile": 12,
-            "delayBetweenRequests": 2000, # Aumenta o tempo para simular um humano e evitar bloqueio[cite: 9]
-            "maxRetries": 5,              # Tenta 5 vezes em IPs diferentes antes de desistir[cite: 9]
+            "delayBetweenRequests": 2000,
+            "maxRetries": 5,
             "proxy": {
                 "useApifyProxy": True,
-                "apifyProxyGroups": ["RESIDENTIAL"], # Mantemos residencial[cite: 9]
-                # Removido a trava de país (BR) para evitar conflito no Free Tier
+                "apifyProxyGroups": ["BUYPROXIES94952"] # Usando o grupo Datacenter liberado na sua conta
             }
+        }
         }
         
         run_barato = client.actor("sones/instagram-posts-scraper-lowcost").call(run_input=run_input_barato)
@@ -83,8 +83,7 @@ def rodar_extracao(url_insta, url_maps):
             "scrape_reels": False,
             "proxy": {
                 "useApifyProxy": True,
-                "apifyProxyGroups": ["RESIDENTIAL"]
-                # Removido a trava de país (BR) aqui também
+                "apifyProxyGroups": ["BUYPROXIES94952"] # Usando o grupo Datacenter liberado na sua conta
             }
         }
         
