@@ -49,7 +49,7 @@ def rodar_extracao(url_insta, url_maps):
             "resultsType": "details",
             "directUrls": [url_insta]
         }
-        # .call() já espera terminar automaticamente
+        # .call() já espera terminar automaticamente (versão antiga da lib)
         run_details = client.actor("shu8hvrXbJbY3Eb9W").call(run_input=run_input_details)
         
         for item in client.dataset(run_details.default_dataset_id).iterate_items(): # Corrigido!
