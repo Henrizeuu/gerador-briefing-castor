@@ -188,12 +188,14 @@ def rodar_extracao(url_insta, url_maps):
         run_input_maps = {
             "languageCode": "pt-BR",
             "maxCrawledPlacesPerSearch": 1,
-            "reviewsSort": "mostRelevant",
-            "maxReviewsPerPlace": 50,
+            "reviewsSort": "newest",
+            "maxReviewsPerPlace": 100,  # Aumentado para pegar mais reviews
             "includeReviewsText": True,
             "includePhotos": False,
             "includeOwnerResponse": True,
             "scrapePlaceDetailPage": True,
+            "scrapeContacts": True,
+            "skipClosedPlaces": False,
         }
         
         # Se for URL, usa startUrls; se for nome, usa searchStringsArray + locationQuery
@@ -230,9 +232,9 @@ def rodar_extracao(url_insta, url_maps):
             )
             
             # Verificar status da execução
-            if run_maps.get('status') == 'FAILED':
-                print(f"  - ❌ Actor falhou: {run_maps.get('errorMessage', 'Erro desconhecido')}")
-                texto_completo_maps = f"Erro na execução do Actor: {run_maps.get('errorMessage', 'Falha desconhecida')}"
+            if run_maps.status == 'FAILED':
+                print(f"  - ❌ Actor falhou: {getattr(run_maps, 'error_message', 'Erro desconhecido')}")
+                texto_completo_maps = f"Erro na execução do Actor: {getattr(run_maps, 'error_message', 'Falha desconhecida')}"
             else:
                 print(f"  - ✅ Run do Maps finalizada com sucesso. Dataset ID: {run_maps.default_dataset_id}")
 
