@@ -107,54 +107,50 @@ def rodar_extracao(url_insta, url_maps):
         print(f"Aviso na extração do Instagram com Apify: {e}")
 
     # ---------------------------------------------------------
-
-    # 2. EXTRAÇÃO DO GOOGLE MAPS (Usando Playwright)
-
+    # 2. EXTRAÇÃO DO GOOGLE MAPS (Via Apify VortexData)
     # ---------------------------------------------------------
-
     if url_maps:
-
         try:
-
-            print("🗺️ Iniciando extração de provas sociais do Google Maps...")
-
-            with sync_playwright() as p:
-
-                browser = p.chromium.launch(headless=True)
-
-                page = browser.new_page()
-
-                page.goto(url_maps)
-
+            print("🗺️ Iniciando extração de provas sociais do Google Maps via Apify...")
+            
+            # Recupera o texto limpo caso o Streamlit tenha enviado uma URL codificada
+            termo_busca = url_maps
+            if "query=" in url_maps:
+                import urllib.parse
+                termo_busca = urllib.parse.unquote(url_maps.split("query=")[1])
                 
-
-                # Aguarda o carregamento do painel do Maps
-
-                page.wait_for_timeout(4000)
-
+            run_input_maps = {
+                "searchStringsArray": [termo_busca], # Busca o nome exato da empresa[cite: 2]
+                "maxCrawledPlacesPerSearch": 1,      # Garante que vai pegar só o alvo principal[cite: 2]
+                "maxReviewsPerPlace": 15,            # Puxa 15 avaliações para dar contexto à copy[cite: 2]
+                "reviewsSort": "newest",             # Traz as mais recentes primeiro[cite: 2]
+                "language": "pt"
+            }
+            
+            run_maps = client.actor("AabCualFIriz3X6Fs").call(run_input=run_input_maps)
+            
+            texto_avaliacoes = ""
+            for item in client.dataset(run_maps.default_dataset_id).iterate_items():
+                nome = item.get("title", "Empresa Alvo")
+                nota = item.get("totalScore", "Sem nota")
+                reviews = item.get("reviews", [])
                 
-
-                # Extrai todo o texto da página para o Gemini garimpar as provas sociais
-
-                texto_pagina = page.locator("body").inner_text()
-
+                texto_avaliacoes += f"Empresa: {nome} (Nota: {nota})\n\n"
                 
-
-                with open(os.path.join(pasta_maps, "avaliacoes.txt"), "w", encoding="utf-8") as f:
-
-                    f.write(texto_pagina[:6000]) # Limite generoso para pegar várias avaliações
-
-                    
-
-                browser.close()
+                for rev in reviews:
+                    autor = rev.get("author", "Anônimo")
+                    texto = rev.get("text", "")
+                    # Filtra apenas avaliações que tenham texto escrito para a IA processar
+                    if texto: 
+                        texto_avaliacoes += f"{autor}: {texto}\n---\n"
+            
+            # Salva no mesmo formato txt que o analise_gemini.py já espera ler
+            caminho_arquivo_maps = os.path.join(pasta_maps, "avaliacoes.txt")
+            with open(caminho_arquivo_maps, "w", encoding="utf-8") as f:
+                f.write(texto_avaliacoes[:6000] if texto_avaliacoes else "Nenhuma avaliação com texto encontrada.")
 
         except Exception as e:
-
             with open(os.path.join(pasta_maps, "avaliacoes.txt"), "w", encoding="utf-8") as f:
-
-                f.write(f"Erro ao extrair Maps: {str(e)}")
-
-
+                f.write(f"Erro ao extrair Maps via Apify: {str(e)}")
 
     return pasta_do_cliente
-
