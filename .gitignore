@@ -1,1 +1,5 @@
-Nothing should be ignored since the changes only include source code files (.py) without any build artifacts, dependencies, or temporary files.
+```
+# Logs and temp files
+*.log
+server.log
+```
