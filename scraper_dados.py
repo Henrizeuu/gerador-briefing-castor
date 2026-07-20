@@ -26,24 +26,24 @@ def rodar_extracao(url_insta, url_maps):
         
         # --- PASSO A: Scraper Lowcost para os Posts ($0.30/1K) ---
         run_input_barato = {
-            "usernames": [nome_cliente], # Lê a lista de arrobas sem o @[cite: 9]
-            "postsPerProfile": 12,       # Limite suave de paginação[cite: 9]
+            "usernames": [nome_cliente],
+            "postsPerProfile": 12,
             "proxy": {
                 "useApifyProxy": True,
-                "apifyProxyGroups": ["RESIDENTIAL"], # Proxies residenciais para evitar bloqueios[cite: 9]
+                "apifyProxyGroups": ["RESIDENTIAL"],
             }
         }
         
         run_barato = client.actor("sones/instagram-posts-scraper-lowcost").call(run_input=run_input_barato)
         
-        for item in client.dataset(run_barato["defaultDatasetId"]).iterate_items():[cite: 8]
-            shortcode = item.get("code") # Puxa o shortcode da URL[cite: 9]
+        for item in client.dataset(run_barato["defaultDatasetId"]).iterate_items():
+            shortcode = item.get("code")
             if not shortcode: continue
             
             pasta_post = os.path.join(pasta_insta, shortcode)
             os.makedirs(pasta_post, exist_ok=True)
             
-            # Garimpa a legenda corretamente navegando no objeto caption[cite: 9]
+            # Garimpa a legenda
             legenda = ""
             if isinstance(item.get("caption"), dict):
                 legenda = item["caption"].get("text", "")
@@ -52,7 +52,7 @@ def rodar_extracao(url_insta, url_maps):
                 with open(os.path.join(pasta_post, "descricao.txt"), "w", encoding="utf-8") as f:
                     f.write(legenda)
             
-            # Tenta baixar a imagem (Raiz ou Carrossel) navegando no image_versions2[cite: 9]
+            # Tenta baixar a imagem (Raiz ou Carrossel) navegando no image_versions2
             img_url = ""
             try:
                 if item.get("carousel_media"):
@@ -70,10 +70,10 @@ def rodar_extracao(url_insta, url_maps):
 
         # --- PASSO B: Scraper Premium para o Perfil ($0.99/1K) ---
         run_input_caro = {
-            "instagramUrls": [f"https://www.instagram.com/{nome_cliente}/"], # Injeção de URLs para extrair perfil[cite: 10]
+            "instagramUrls": [f"https://www.instagram.com/{nome_cliente}/"],
             "scrapeProfile": True,
-            "scrapePosts": False, # Desativado para economizar custo[cite: 10]
-            "scrapeReels": False  # Desativado para economizar custo[cite: 10]
+            "scrapePosts": False,
+            "scrapeReels": False
         }
         
         run_caro = client.actor("hpix/instagram-scraper").call(run_input=run_input_caro)
@@ -115,17 +115,17 @@ def rodar_extracao(url_insta, url_maps):
                 termo_busca = urllib.parse.unquote(url_maps.split("query=")[1])
 
             run_input_maps = {
-                "searchStringsArray": [termo_busca], # Input em formato de array exigido pelo Actor[cite: 11]
-                "maxCrawledPlacesPerSearch": 1,      # Garante só a primeira empresa para economizar[cite: 11]
-                "maxReviewsPerPlace": 15,            # Limita a 15 avaliações para passar pro Gemini[cite: 11]
-                "reviewsSort": "newest",             # Traz as mais recentes primeiro[cite: 11]
+                "searchStringsArray": [termo_busca],
+                "maxCrawledPlacesPerSearch": 1,
+                "maxReviewsPerPlace": 15,
+                "reviewsSort": "newest",
                 "language": "pt"
             }
 
-            run_maps = client.actor("AabCualFIriz3X6Fs").call(run_input=run_input_maps)[cite: 12]
+            run_maps = client.actor("AabCualFIriz3X6Fs").call(run_input=run_input_maps)
 
             texto_avaliacoes = ""
-            for item in client.dataset(run_maps["defaultDatasetId"]).iterate_items():[cite: 12]
+            for item in client.dataset(run_maps["defaultDatasetId"]).iterate_items():
                 nome_empresa = item.get("title", "Empresa Alvo")
                 nota = item.get("totalScore", "Sem nota")
                 reviews = item.get("reviews", [])
