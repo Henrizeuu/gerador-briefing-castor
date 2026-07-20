@@ -15,7 +15,7 @@ st.set_page_config(
 )
 
 # ============================================================================
-# CSS CUSTOMIZADO PARA APARÊNCIA PROFISSIONAL
+# CSS CUSTOMIZADO PARA APARÊNCIA PROFISSIONAL - TEMA PRETO E BRANCO
 # ============================================================================
 st.markdown("""
 <style>
@@ -27,130 +27,134 @@ st.markdown("""
         font-family: 'Inter', sans-serif !important;
     }
     
-    /* Background gradient */
+    /* Background clean */
     .stApp {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        background-attachment: fixed;
+        background-color: #ffffff;
     }
     
-    /* Container principal com glassmorphism */
+    /* Container principal */
     .main-container {
-        background: rgba(255, 255, 255, 0.95);
-        border-radius: 20px;
+        background: #ffffff;
+        border-radius: 0;
         padding: 2rem;
-        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-        backdrop-filter: blur(10px);
         margin: 2rem auto;
         max-width: 1400px;
+        border-left: 3px solid #000000;
+        padding-left: 2rem;
     }
     
     /* Títulos */
     h1, h2, h3, h4 {
-        color: #1a202c !important;
+        color: #000000 !important;
         font-weight: 700 !important;
     }
     
     h1 {
         font-size: 2.5rem !important;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        background-clip: text;
+        color: #000000 !important;
         margin-bottom: 0.5rem !important;
+        text-transform: uppercase;
+        letter-spacing: -1px;
     }
     
     /* Subtítulo */
     .subtitle {
-        color: #4a5568;
+        color: #666666;
         font-size: 1.1rem;
         margin-bottom: 2rem;
-        font-weight: 400;
+        font-weight: 300;
     }
     
     /* Cards de input */
     .input-card {
-        background: white;
-        border-radius: 12px;
+        background: #f8f9fa;
+        border-radius: 0;
         padding: 1.5rem;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
-        border: 1px solid #e2e8f0;
+        border: 1px solid #e0e0e0;
         margin-bottom: 1rem;
         transition: all 0.3s ease;
     }
     
     .input-card:hover {
-        box-shadow: 0 8px 15px rgba(0, 0, 0, 0.1);
-        transform: translateY(-2px);
+        border-color: #000000;
+        background: #ffffff;
     }
     
     /* Botões customizados */
     .stButton > button {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-        border: none;
-        border-radius: 10px;
+        background: #000000;
+        color: #ffffff;
+        border: 2px solid #000000;
+        border-radius: 0;
         padding: 0.75rem 2rem;
         font-weight: 600;
         font-size: 1rem;
         transition: all 0.3s ease;
-        box-shadow: 0 4px 6px rgba(102, 126, 234, 0.3);
+        text-transform: uppercase;
+        letter-spacing: 1px;
     }
     
     .stButton > button:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 6px 12px rgba(102, 126, 234, 0.4);
+        background: #ffffff;
+        color: #000000;
+        border-color: #000000;
     }
     
     .stButton > button:active {
-        transform: translateY(0);
+        transform: scale(0.98);
     }
     
     /* Status badges */
     .status-badge {
         display: inline-block;
         padding: 0.5rem 1rem;
-        border-radius: 20px;
+        border-radius: 0;
         font-weight: 600;
         font-size: 0.9rem;
         margin: 0.5rem 0;
+        border: 1px solid;
     }
     
     .status-success {
-        background: #c6f6d5;
-        color: #22543d;
+        background: #ffffff;
+        color: #000000;
+        border-color: #000000;
     }
     
     .status-warning {
-        background: #feebc8;
-        color: #744210;
+        background: #fff8e1;
+        color: #000000;
+        border-color: #ffc107;
     }
     
     .status-error {
-        background: #fed7d7;
-        color: #742a2a;
+        background: #ffebee;
+        color: #000000;
+        border-color: #f44336;
     }
     
     /* Seções de resultado */
     .result-section {
-        background: white;
-        border-radius: 15px;
+        background: #ffffff;
+        border-radius: 0;
         padding: 2rem;
         margin-top: 2rem;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+        border: 1px solid #e0e0e0;
+        border-left: 4px solid #000000;
     }
     
     .result-header {
-        border-bottom: 3px solid #667eea;
+        border-bottom: 2px solid #000000;
         padding-bottom: 1rem;
         margin-bottom: 1.5rem;
     }
     
     /* JSON display melhorado */
     .json-container {
-        background: #1a202c;
-        color: #48bb78;
+        background: #000000;
+        color: #ffffff;
         padding: 1.5rem;
-        border-radius: 10px;
+        border-radius: 0;
         font-family: 'Courier New', monospace;
         overflow-x: auto;
         max-height: 500px;
@@ -159,39 +163,49 @@ st.markdown("""
     
     /* Divider estilizado */
     .styled-divider {
-        height: 3px;
-        background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+        height: 2px;
+        background: #000000;
         border: none;
-        border-radius: 2px;
         margin: 2rem 0;
-    }
-    
-    /* Loading spinner customizado */
-    .loading-container {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        padding: 3rem;
     }
     
     /* Input fields */
     .stTextInput > div > div > input {
-        border-radius: 8px;
-        border: 2px solid #e2e8f0;
+        border-radius: 0;
+        border: 1px solid #cccccc;
         padding: 0.75rem;
         transition: all 0.3s ease;
+        background: #ffffff;
     }
     
     .stTextInput > div > div > input:focus {
-        border-color: #667eea;
-        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        border-color: #000000;
+        box-shadow: none;
+        outline: 2px solid #000000;
+        outline-offset: -1px;
     }
     
     /* Remove padding excessivo do Streamlit */
     .block-container {
         padding-top: 2rem;
         padding-bottom: 2rem;
+    }
+    
+    /* Info boxes */
+    .stAlert {
+        border-radius: 0;
+        border: 1px solid #e0e0e0;
+    }
+    
+    /* Expander */
+    .streamlit-expanderHeader {
+        border-radius: 0;
+        border: 1px solid #e0e0e0;
+        background: #f8f9fa;
+    }
+    
+    .streamlit-expanderHeader:hover {
+        border-color: #000000;
     }
 </style>
 """, unsafe_allow_html=True)

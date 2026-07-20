@@ -184,18 +184,39 @@ def rodar_extracao(url_insta, url_maps):
             business_name = url_maps
         
         # Preparar input para o Actor
-        # O compass/crawler-google-places usa searchStringsArray + locationQuery para buscas
+        # Usando startUrls quando temos uma URL completa, ou searchStringsArray quando temos apenas nome
         run_input_maps = {
-            "languageCode": "pt-BR",
-            "maxCrawledPlacesPerSearch": 1,
-            "reviewsSort": "newest",
-            "maxReviewsPerPlace": 100,  # Aumentado para pegar mais reviews
-            "includeReviewsText": True,
-            "includePhotos": False,
-            "includeOwnerResponse": True,
-            "scrapePlaceDetailPage": True,
+            "language": "pt-BR",
+            "maxReviews": 50,
+            "reviewsSort": "mostRelevant",
+            "scrapeReviewsPersonalData": True,
             "scrapeContacts": True,
+            "maxImages": 0,
+            "scrapeSocialMediaProfiles": {
+                "facebooks": False,
+                "instagrams": False,
+                "youtubes": False,
+                "tiktoks": False,
+                "twitters": False
+            },
+            "searchMatching": "all",
+            "placeMinimumStars": "",
+            "website": "allPlaces",
             "skipClosedPlaces": False,
+            "scrapePlaceDetailPage": True,
+            "scrapeTableReservationProvider": False,
+            "scrapeOrderOnline": False,
+            "includeWebResults": False,
+            "scrapeDirectories": False,
+            "maxQuestions": 0,
+            "maximumLeadsEnrichmentRecords": 0,
+            "verifyLeadsEnrichmentEmails": False,
+            "reviewsFilterString": "",
+            "reviewsOrigin": "all",
+            "scrapeImageAuthors": False,
+            "enableCompetitorAnalysis": False,
+            "maxCompetitorsToAnalyze": 30,
+            "allPlacesNoSearchAction": ""
         }
         
         # Se for URL, usa startUrls; se for nome, usa searchStringsArray + locationQuery
@@ -204,22 +225,19 @@ def rodar_extracao(url_insta, url_maps):
             print(f"  - Usando URL direta: {url_maps}")
         else:
             # Para busca por nome, precisamos separar o nome da localização
-            # Formato esperado: "nome do negócio, cidade, estado"
             partes = url_maps.split(',')
             
             if len(partes) >= 2:
-                # Tem localização: "bayar advogados, canoas rs"
                 business_name = partes[0].strip()
                 location = ','.join(partes[1:]).strip()
                 run_input_maps["searchStringsArray"] = [business_name]
                 run_input_maps["locationQuery"] = location
                 print(f"  - Buscando por: '{business_name}' em: '{location}'")
             else:
-                # Só tem o nome sem localização clara
                 business_name = url_maps.strip()
                 run_input_maps["searchStringsArray"] = [business_name]
-                run_input_maps["locationQuery"] = "Brasil"  # Fallback para Brasil
-                print(f"  - Buscando por: '{business_name}' no Brasil (dica: adicione ', cidade' para refinar)")
+                run_input_maps["locationQuery"] = "Brasil"
+                print(f"  - Buscando por: '{business_name}' no Brasil")
 
         print(f"  - Input enviado ao Actor: {json.dumps(run_input_maps, indent=2)[:500]}...")
         print("  - Executando Actor do Google Maps (compass/crawler-google-places)...")
@@ -250,7 +268,7 @@ def rodar_extracao(url_insta, url_maps):
                     empresa = dados[0] # Assume que o primeiro item é a empresa alvo
                     
                     # Debug: mostrar estrutura dos dados recebidos
-                    print(f"  - DEBUG: Chaves disponíveis no objeto empresa: {list(empresa.keys())[:20]}")
+                    print(f"  - DEBUG: Chaves disponíveis no objeto empresa: {list(empresa.keys())[:30]}")
 
                     texto_completo_maps += "=== DADOS DO NEGÓCIO (MAPS) ===\n"
                     texto_completo_maps += f"Nome: {empresa.get('title', empresa.get('name', 'N/A'))}\n"
@@ -261,17 +279,33 @@ def rodar_extracao(url_insta, url_maps):
                     texto_completo_maps += f"Avaliação Geral: {empresa.get('totalScore', empresa.get('averageRating', 0))} estrelas ({empresa.get('reviewsCount', empresa.get('totalReviews', 0))} avaliações)\n\n"
 
                     texto_completo_maps += "=== AVALIAÇÕES DE CLIENTES (PROVA SOCIAL) ===\n"
-                    reviews = empresa.get('reviews', [])
+                    
+                    # Tentar diferentes formatos de reviews
+                    reviews = []
+                    if 'reviews' in empresa and isinstance(empresa['reviews'], list):
+                        reviews = empresa['reviews']
+                        print(f"  - Reviews encontradas em 'reviews': {len(reviews)}")
+                    elif 'reviewsData' in empresa and isinstance(empresa['reviewsData'], list):
+                        reviews = empresa['reviewsData']
+                        print(f"  - Reviews encontradas em 'reviewsData': {len(reviews)}")
+                    elif 'googleReviews' in empresa and isinstance(empresa['googleReviews'], list):
+                        reviews = empresa['googleReviews']
+                        print(f"  - Reviews encontradas em 'googleReviews': {len(reviews)}")
+                    
                     if not reviews:
                         print("  - ⚠️ Nenhuma avaliação textual encontrada no item retornado.")
+                        print(f"  - DEBUG: Procurando por reviews em todas as chaves...")
+                        for key in empresa.keys():
+                            if 'review' in key.lower() and isinstance(empresa[key], list):
+                                print(f"    - Lista encontrada em '{key}': {len(empresa[key])} itens")
                         texto_completo_maps += "Nenhuma avaliação textual encontrada no Maps.\n"
                     else:
                         print(f"  - Encontradas {len(reviews)} avaliações no item retornado.")
                         for rev in reviews[:20]: # Limita a 20 reviews
-                            autor = rev.get('author', rev.get('reviewerName', 'Anônimo'))
-                            texto_rev = rev.get('text', rev.get('reviewText', 'Sem texto'))
-                            data_rev = rev.get('publishedAt', rev.get('reviewDate', ''))
-                            rating = rev.get('rating', '')
+                            autor = rev.get('author', rev.get('reviewerName', rev.get('userName', 'Anônimo')))
+                            texto_rev = rev.get('text', rev.get('reviewText', rev.get('comment', 'Sem texto')))
+                            data_rev = rev.get('publishedAt', rev.get('reviewDate', rev.get('published_at', '')))
+                            rating = rev.get('rating', rev.get('stars', ''))
                             texto_completo_maps += f"- [{autor}] ({data_rev}) - {rating}⭐: {texto_rev}\n"
 
         except Exception as e:
