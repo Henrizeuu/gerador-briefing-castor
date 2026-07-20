@@ -184,34 +184,40 @@ def rodar_extracao(url_insta, url_maps):
             business_name = url_maps
         
         # Preparar input para o Actor
-        # O compass/crawler-google-places aceita searchQueries para buscar por nome
+        # O compass/crawler-google-places usa searchStringsArray + locationQuery para buscas
         run_input_maps = {
             "languageCode": "pt-BR",
-            "maxCrawledPlaces": 1,
+            "maxCrawledPlacesPerSearch": 1,
             "reviewsSort": "mostRelevant",
             "maxReviewsPerPlace": 50,
             "includeReviewsText": True,
             "includePhotos": False,
             "includeOwnerResponse": True,
+            "scrapePlaceDetailPage": True,
         }
         
-        # Se for URL, usa startUrls; se for nome, usa searchQueries
+        # Se for URL, usa startUrls; se for nome, usa searchStringsArray + locationQuery
         if eh_url:
             run_input_maps["startUrls"] = [{"url": url_maps}]
             print(f"  - Usando URL direta: {url_maps}")
         else:
-            # Para busca por nome, adicionamos a localização se possível
-            # O actor aceita searchQueries no formato "nome, cidade"
-            run_input_maps["searchQueries"] = [url_maps]
-            print(f"  - Usando termo de busca: {url_maps}")
-        
-        # Adicionar localização se estiver no termo de busca (ex: "advogados, canoas rs")
-        if "," in url_maps and not eh_url:
-            # Já está no formato "nome, localizacao"
-            pass
-        elif not eh_url:
-            # Se só tem o nome sem localização, o actor vai buscar globalmente
-            print(f"  - ⚠️ Dica: Para resultados mais precisos, use 'nome, cidade' (ex: 'bayar advogados, canoas rs')")
+            # Para busca por nome, precisamos separar o nome da localização
+            # Formato esperado: "nome do negócio, cidade, estado"
+            partes = url_maps.split(',')
+            
+            if len(partes) >= 2:
+                # Tem localização: "bayar advogados, canoas rs"
+                business_name = partes[0].strip()
+                location = ','.join(partes[1:]).strip()
+                run_input_maps["searchStringsArray"] = [business_name]
+                run_input_maps["locationQuery"] = location
+                print(f"  - Buscando por: '{business_name}' em: '{location}'")
+            else:
+                # Só tem o nome sem localização clara
+                business_name = url_maps.strip()
+                run_input_maps["searchStringsArray"] = [business_name]
+                run_input_maps["locationQuery"] = "Brasil"  # Fallback para Brasil
+                print(f"  - Buscando por: '{business_name}' no Brasil (dica: adicione ', cidade' para refinar)")
 
         print(f"  - Input enviado ao Actor: {json.dumps(run_input_maps, indent=2)[:500]}...")
         print("  - Executando Actor do Google Maps (compass/crawler-google-places)...")
