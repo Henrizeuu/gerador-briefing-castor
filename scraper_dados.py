@@ -19,87 +19,112 @@ def rodar_extracao(url_insta, url_maps):
     client = ApifyClient(CHAVE_APIFY)
 
     # ---------------------------------------------------------
-    # 1. EXTRAÇÃO DO INSTAGRAM (USANDO O OFICIAL BLINDADO)
+    # 1.A. EXTRAÇÃO DOS POSTS (LOWCOST: $0.30/1K)
     # ---------------------------------------------------------
     try:
-        print(f"🦫 Iniciando extração do Instagram (Scraper Oficial) para: {url_insta}")
-
-        # --- PASSO A: EXTRAIR INFORMAÇÕES DO PERFIL ---
-        run_input_perfil = {
-            "resultsType": "details",
-            "directUrls": [url_insta],
+        print(f"🦫 Iniciando extração dos Posts (Lowcost) para: @{nome_cliente}")
+        
+        run_input_barato = {
+            "usernames": [nome_cliente],
+            "postsPerProfile": 12,
+            "delayBetweenRequests": 2000,
+            "maxRetries": 5,
+            "proxy": {
+                "useApifyProxy": True,
+                "apifyProxyGroups": ["RESIDENTIAL"]
+            }
         }
         
-        run_perfil = client.actor("apify/instagram-scraper").call(run_input=run_input_perfil)
+        run_barato = client.actor("sones/instagram-posts-scraper-lowcost").call(run_input=run_input_barato)
         
-        nome_completo, bio, seguidores, categoria, foto_perfil_url = "", "", 0, "N/A", ""
-
-        for info in client.dataset(run_perfil.default_dataset_id).iterate_items():
-            nome_completo = info.get('fullName', 'N/A')
-            bio = info.get('biography', 'N/A')
-            seguidores = info.get('followersCount', 0)
-            categoria = info.get('businessCategoryName', 'N/A')
-            foto_perfil_url = info.get('profilePicUrlHD') or info.get('profilePicUrl')
-            break
-
-        with open(os.path.join(pasta_insta, "dados_perfil.txt"), "w", encoding="utf-8") as f:
-            f.write(f"Nome: {nome_completo}\nBio: {bio}\nSeguidores: {seguidores}\nCategoria: {categoria}\n")
-
-        if foto_perfil_url:
-            try:
-                # Usando headers para evitar bloqueio 403 Forbidden no download da imagem
-                req = urllib.request.Request(foto_perfil_url, headers={'User-Agent': 'Mozilla/5.0'})
-                with urllib.request.urlopen(req) as response, open(os.path.join(pasta_insta, "foto_perfil.jpg"), 'wb') as out_file:
-                    out_file.write(response.read())
-            except Exception as e:
-                print(f"Aviso ao baixar foto de perfil: {e}")
-
-        # --- PASSO B: EXTRAIR OS POSTS ---
-        run_input_posts = {
-            "resultsType": "posts",
-            "directUrls": [url_insta],
-            "resultsLimit": 12,
-        }
-        
-        run_posts = client.actor("apify/instagram-scraper").call(run_input=run_input_posts)
-
-        for post in client.dataset(run_posts.default_dataset_id).iterate_items():
-            shortcode = post.get('shortCode')
+        for item in client.dataset(run_barato.default_dataset_id).iterate_items():
+            shortcode = item.get("code")
             if not shortcode: continue
-
+            
             pasta_post = os.path.join(pasta_insta, shortcode)
             os.makedirs(pasta_post, exist_ok=True)
-
-            legenda = post.get('caption', '')
+            
+            legenda = ""
+            if isinstance(item.get("caption"), dict):
+                legenda = item["caption"].get("text", "")
+                
             if legenda:
                 with open(os.path.join(pasta_post, "descricao.txt"), "w", encoding="utf-8") as f:
                     f.write(legenda)
-
-            # Lógica de filtragem de imagens do seu script original
-            links_para_baixar = []
-            if 'childPosts' in post and post['childPosts']:
-                for child in post['childPosts']:
-                    if 'videoUrl' not in child or not child['videoUrl']:
-                        if 'displayUrl' in child and child['displayUrl']:
-                            links_para_baixar.append(child['displayUrl'])
-            elif 'videoUrl' not in post or not post['videoUrl']:
-                if 'displayUrl' in post:
-                    links_para_baixar.append(post['displayUrl'])
-
-            if links_para_baixar:
+            
+            img_url = ""
+            try:
+                if item.get("carousel_media"):
+                    img_url = item["carousel_media"][0].get("image_versions2", {}).get("candidates", [{}])[0].get("url", "")
+                elif item.get("image_versions2"):
+                    img_url = item["image_versions2"].get("candidates", [{}])[0].get("url", "")
+            except Exception:
+                pass
+            
+            if img_url:
                 try:
-                    # Baixa apenas a primeira imagem do post
-                    req = urllib.request.Request(links_para_baixar[0], headers={'User-Agent': 'Mozilla/5.0'})
+                    # BLINDAGEM DE DOWNLOAD: Header User-Agent simula um navegador real
+                    req = urllib.request.Request(img_url, headers={'User-Agent': 'Mozilla/5.0'})
                     with urllib.request.urlopen(req) as response, open(os.path.join(pasta_post, "imagem.jpg"), 'wb') as out_file:
                         out_file.write(response.read())
                 except Exception as e:
                     pass
 
     except Exception as e:
-        print(f"Aviso na extração do Instagram via Apify Oficial: {e}")
+        print(f"Aviso na extração de Posts do Instagram: {e}")
 
     # ---------------------------------------------------------
-    # 2. EXTRAÇÃO DO GOOGLE MAPS (NOVO SCRAPER OTIMIZADO)
+    # 1.B. EXTRAÇÃO DO PERFIL (PREMIUM: $0.99/1K)
+    # ---------------------------------------------------------
+    try:
+        print(f"🦫 Iniciando extração do Perfil (Premium) para: @{nome_cliente}")
+        
+        run_input_caro = {
+            "profiles": [nome_cliente],
+            "scrape_profile_data": True,
+            "scrape_posts": False,
+            "scrape_reels": False,
+            "proxy": {
+                "useApifyProxy": True,
+                "apifyProxyGroups": ["RESIDENTIAL"]
+            }
+        }
+        
+        run_caro = client.actor("hpix/instagram-scraper").call(run_input=run_input_caro)
+        
+        nome_completo, bio, seguidores, categoria, foto_perfil_url = "", "", 0, "N/A", ""
+        
+        for item in client.dataset(run_caro.default_dataset_id).iterate_items():
+            if item.get("kind") == "profile":
+                dados = item.get("data", {})
+            else:
+                dados = item
+                
+            if "biography" in dados or "bio" in dados:
+                nome_completo = dados.get("full_name", "") or dados.get("fullName", "")
+                bio = dados.get("biography", "") or dados.get("bio", "")
+                seguidores = dados.get("followers", 0) or dados.get("followersCount", 0) or dados.get("follower_count", 0)
+                foto_perfil_url = dados.get("profile_pic_url", "") or dados.get("profilePicUrl", "")
+                categoria = dados.get("business_category_name", "N/A") or dados.get("category_name", "N/A") or dados.get("categoryName", "N/A")
+                break 
+            
+        with open(os.path.join(pasta_insta, "dados_perfil.txt"), "w", encoding="utf-8") as f:
+            f.write(f"Nome: {nome_completo}\nBio: {bio}\nSeguidores: {seguidores}\nCategoria: {categoria}\n")
+            
+        if foto_perfil_url:
+            try:
+                # BLINDAGEM DE DOWNLOAD: Header User-Agent simula um navegador real
+                req = urllib.request.Request(foto_perfil_url, headers={'User-Agent': 'Mozilla/5.0'})
+                with urllib.request.urlopen(req) as response, open(os.path.join(pasta_insta, "foto_perfil.jpg"), 'wb') as out_file:
+                    out_file.write(response.read())
+            except Exception as e:
+                pass
+
+    except Exception as e:
+        print(f"Aviso na extração do Perfil do Instagram: {e}")
+
+    # ---------------------------------------------------------
+    # 2. EXTRAÇÃO DO GOOGLE MAPS
     # ---------------------------------------------------------
     if url_maps:
         try:
