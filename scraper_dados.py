@@ -141,7 +141,7 @@ def rodar_extracao(url_insta, url_maps):
         try:
             run_maps = client.actor("compass/crawler-google-places").call(
                 run_input=run_input_maps,
-                wait_secs=180
+                timeout_secs=300  # Limita a 5 minutos o tempo de execução no servidor da Apify
             )
             
             print(f"✅ Run do Maps finalizada. Dataset ID: {run_maps.default_dataset_id}")
