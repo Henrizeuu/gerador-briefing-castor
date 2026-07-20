@@ -1,7 +1,7 @@
 flask
 flask-cors
-google-genai
-pillow
-PyGithub
-playwright
-apify-client
+requests
+google-generativeai
+pydantic
+python-dotenv
+gunicorn
