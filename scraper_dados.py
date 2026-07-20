@@ -27,10 +27,12 @@ def rodar_extracao(url_insta, url_maps):
         run_input_barato = {
             "usernames": [nome_cliente],
             "postsPerProfile": 12,
+            "delayBetweenRequests": 2000, # Aumenta o tempo para simular um humano e evitar bloqueio[cite: 9]
+            "maxRetries": 5,              # Tenta 5 vezes em IPs diferentes antes de desistir[cite: 9]
             "proxy": {
                 "useApifyProxy": True,
-                "apifyProxyGroups": ["RESIDENTIAL"], # Grupo correto para redes sociais
-                "apifyProxyCountry": "BR"            # Força o IP a ser do Brasil
+                "apifyProxyGroups": ["RESIDENTIAL"], # Mantemos residencial[cite: 9]
+                # Removido a trava de país (BR) para evitar conflito no Free Tier
             }
         }
         
@@ -81,8 +83,8 @@ def rodar_extracao(url_insta, url_maps):
             "scrape_reels": False,
             "proxy": {
                 "useApifyProxy": True,
-                "apifyProxyGroups": ["RESIDENTIAL"], # Blindagem aplicada aqui também
-                "apifyProxyCountry": "BR"
+                "apifyProxyGroups": ["RESIDENTIAL"]
+                # Removido a trava de país (BR) aqui também
             }
         }
         
