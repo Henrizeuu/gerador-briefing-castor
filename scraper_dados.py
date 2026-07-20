@@ -1,7 +1,6 @@
 import os
 import json
 import requests
-import urllib.parse
 from apify_client import ApifyClient
 
 def baixar_imagem(url, caminho_salvar):
@@ -21,7 +20,7 @@ def rodar_extracao(url_insta, url_maps):
     """
     Função principal que orquestra o scraping via Apify e salva os dados.
     """
-    print(f" INICIANDO EXTRAÇÃO: Instagram={url_insta} | Maps={url_maps}")
+    print(f"🦫 INICIANDO EXTRAÇÃO: Instagram={url_insta} | Maps={url_maps}")
     
     APIFY_TOKEN = os.environ.get("APIFY_API_TOKEN")
     if not APIFY_TOKEN:
@@ -50,7 +49,8 @@ def rodar_extracao(url_insta, url_maps):
             "resultsType": "details",
             "directUrls": [url_insta]
         }
-        run_details = client.actor("shu8hvrXbJbY3Eb9W").call(run_input=run_input_details, wait_secs=120)
+        # .call() já espera terminar automaticamente
+        run_details = client.actor("shu8hvrXbJbY3Eb9W").call(run_input=run_input_details)
         
         for item in client.dataset(run_details["defaultDatasetId"]).iterate_items():
             texto_completo_insta += f"Nome: {item.get('fullName', 'N/A')}\n"
@@ -75,7 +75,7 @@ def rodar_extracao(url_insta, url_maps):
             "directUrls": [url_insta],
             "resultsLimit": 21 
         }
-        run_posts = client.actor("shu8hvrXbJbY3Eb9W").call(run_input=run_input_posts, wait_secs=120)
+        run_posts = client.actor("shu8hvrXbJbY3Eb9W").call(run_input=run_input_posts)
         
         texto_completo_insta += "=== LEGENDAS DOS POSTS RECENTES ===\n"
         img_count = 0
@@ -139,14 +139,14 @@ def rodar_extracao(url_insta, url_maps):
         print(f"🚀 Iniciando scraper do Maps com URL: {url_maps}")
         
         try:
+            # REMOVIDO: wait_secs e timeout_secs (o .call() já espera terminar)
             run_maps = client.actor("compass/crawler-google-places").call(
-                run_input=run_input_maps,
-                timeout_secs=300  # Limita a 5 minutos o tempo de execução no servidor da Apify
+                run_input=run_input_maps
             )
             
-            print(f"✅ Run do Maps finalizada. Dataset ID: {run_maps.default_dataset_id}")
+            print(f"✅ Run do Maps finalizada. Dataset ID: {run_maps['defaultDatasetId']}")
             
-            dados = list(client.dataset(run_maps.default_dataset_id).iterate_items())
+            dados = list(client.dataset(run_maps["defaultDatasetId"]).iterate_items())
             
             if not dados:
                 print("⚠️ Nenhum dado retornado do Maps.")
@@ -183,5 +183,5 @@ def rodar_extracao(url_insta, url_maps):
         f.write(texto_completo_maps)
     print("✅ Maps concluído!")
 
-    print("🎉 EXTRAÇÃO TOTAL FINALIZADA!")
+    print(" EXTRAÇÃO TOTAL FINALIZADA!")
     return pasta_base
