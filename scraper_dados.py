@@ -38,7 +38,7 @@ def rodar_extracao(url_insta, url_maps):
     os.makedirs(pasta_maps, exist_ok=True)
 
     # ==========================================
-    # 2. EXTRAÇÃO DO INSTAGRAM
+    # 2. EXTRAÇÃO DO INSTAGRAM (Corrigido)
     # ==========================================
     print("📸 [1/2] Extraindo dados do Instagram...")
     texto_completo_insta = "=== DADOS ESTRUTURAIS DO PERFIL ===\n"
@@ -52,7 +52,7 @@ def rodar_extracao(url_insta, url_maps):
         # .call() já espera terminar automaticamente
         run_details = client.actor("shu8hvrXbJbY3Eb9W").call(run_input=run_input_details)
         
-        for item in client.dataset(run_details["defaultDatasetId"]).iterate_items():
+        for item in client.dataset(run_details.default_dataset_id).iterate_items(): # Corrigido!
             texto_completo_insta += f"Nome: {item.get('fullName', 'N/A')}\n"
             texto_completo_insta += f"Username: {item.get('username', 'N/A')}\n"
             texto_completo_insta += f"Bio: {item.get('biography', 'N/A')}\n"
@@ -80,7 +80,7 @@ def rodar_extracao(url_insta, url_maps):
         texto_completo_insta += "=== LEGENDAS DOS POSTS RECENTES ===\n"
         img_count = 0
         
-        for item in client.dataset(run_posts["defaultDatasetId"]).iterate_items():
+        for item in client.dataset(run_posts.default_dataset_id).iterate_items(): # Corrigido!
             if img_count >= 21: break
             
             caption = item.get('caption', 'Sem legenda').replace('\n', ' ')
@@ -109,17 +109,16 @@ def rodar_extracao(url_insta, url_maps):
     print("✅ Instagram concluído!")
 
     # ==========================================
-    # 3. EXTRAÇÃO DO GOOGLE MAPS (COM DIAGNÓSTICO DE ERRO)
+    # 3. EXTRAÇÃO DO GOOGLE MAPS (Corrigido)
     # ==========================================
     print("🗺️ [2/2] Extraindo dados do Google Maps...")
     texto_completo_maps = ""
     
-    if not url_maps or url_maps.strip() == "":
-        print("️ URL do Maps não fornecida, criando arquivo vazio...")
-        texto_completo_maps = "Nenhuma informação do Google Maps fornecida."
+    # VERIFICAÇÃO CRUCIAL: O Maps só funciona com URL direta!
+    if not url_maps or url_maps.strip() == "" or not url_maps.startswith(('http://', 'https://')):
+        print("⚠️ URL do Maps inválida ou não fornecida. Espera-se uma URL direta do Google Maps. Criando arquivo vazio...")
+        texto_completo_maps = "Dados do Google Maps não fornecidos ou inválidos. A URL deve começar com 'http://' ou 'https://'."
     else:
-        from apify_client import ApifyApiError # Importa a classe de erro da Apify
-
         run_input_maps = {
             "startUrls": [{"url": url_maps}],
             "language": "pt-BR",
@@ -137,18 +136,20 @@ def rodar_extracao(url_insta, url_maps):
             },
         }
         
-        print(f"🚀 Iniciando scraper do Maps com URL: {url_maps}")
+        print(f"🚀 Iniciando scraper do Maps com URL válida: {url_maps}")
         
         try:
-            # Tenta rodar o actor
-            run_maps = client.actor("compass/crawler-google-places").call(run_input=run_input_maps)
+            # REMOVIDO: wait_secs e timeout_secs
+            run_maps = client.actor("compass/crawler-google-places").call(
+                run_input=run_input_maps
+            )
             
-            print(f"✅ Run do Maps finalizada. Dataset ID: {run_maps.default_dataset_id}")
+            print(f"✅ Run do Maps finalizada. Dataset ID: {run_maps.default_dataset_id}") # Corrigido!
             
-            dados = list(client.dataset(run_maps.default_dataset_id).iterate_items())
+            dados = list(client.dataset(run_maps.default_dataset_id).iterate_items()) # Corrigido!
             
             if not dados:
-                print("️ Nenhum dado retornado do Maps.")
+                print("⚠️ Nenhum dado retornado do Maps.")
                 texto_completo_maps = "Nenhum dado foi extraído do Google Maps."
             else:
                 empresa = dados[0]
@@ -172,29 +173,13 @@ def rodar_extracao(url_insta, url_maps):
                     data_rev = rev.get('publishedAt', '')
                     texto_completo_maps += f"- [{autor}] ({data_rev}): {texto_rev}\n"
                     
-        except ApifyApiError as e:
-            # AQUI ESTÁ A MÁGICA: VAMOS VER O QUE A API DISSE
-            print(f"❌ A API da Apify rejeitou a requisição do Maps!")
-            print(f"🔴 Status Code (HTTP): {e.status_code}")
-            print(f"🔴 Mensagem de Erro da API: {e.message}")
-            print(f"🔴 Tipo de Erro: {e.type}")
-            
-            if e.status_code == 402:
-                print("💸 MOTIVO PROVÁVEL: Você atingiu o limite de $5.00 do plano gratuito da Apify. Adicione créditos ou espere o mês virar.")
-            elif e.status_code == 400:
-                print("️ MOTIVO PROVÁVEL: O formato do input está inválido para este actor.")
-                
-            texto_completo_maps = f"Erro na API do Maps: {e.message}"
-            
         except Exception as e:
-            print(f" Erro genérico ao buscar dados do Maps: {e}")
-            import traceback
-            traceback.print_exc()
+            print(f"❌ Erro ao buscar dados do Maps: {e}")
             texto_completo_maps = f"Erro ao extrair dados do Google Maps: {str(e)}"
 
     with open(f"{pasta_maps}/01_dados_maps.txt", 'w', encoding='utf-8') as f:
         f.write(texto_completo_maps)
     print("✅ Maps concluído!")
 
-    print(" EXTRAÇÃO TOTAL FINALIZADA!")
+    print("🎉 EXTRAÇÃO TOTAL FINALIZADA!")
     return pasta_base
