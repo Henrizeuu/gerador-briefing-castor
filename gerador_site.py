@@ -1,85 +1,108 @@
 import os
 import glob
-import re
+import json
 from google import genai
 from google.genai import types
 
-def criar_html_institucional(briefing_texto, pasta_base_cliente):
+def criar_html_institucional(briefing_json_texto, pasta_base_cliente):
+    """
+    Recebe o JSON do briefing e a pasta do cliente, e usa o Gemini para 
+    escrever o código HTML completo do site institucional.
+    """
     CHAVE_API_GEMINI = os.environ.get("GEMINI_TOKEN")
     if not CHAVE_API_GEMINI:
         return None, "Erro: Token do Gemini não configurado."
         
     client = genai.Client(api_key=CHAVE_API_GEMINI)
     
+    # 1. Parsear o JSON do briefing (com fallback de segurança)
+    try:
+        dados = json.loads(briefing_json_texto)
+    except json.JSONDecodeError:
+        # Se o Gemini alucinar e não devolver JSON puro, usamos dados padrão para não quebrar o site
+        dados = {
+            "nome_nicho": "Empresa Cliente",
+            "grande_problema": "Soluções especializadas para você.",
+            "solucao_servicos": "Nossos serviços",
+            "diferencial": "Qualidade e confiança",
+            "autoridade_sobre": "Sobre nossa empresa",
+            "faq": "Perguntas frequentes",
+            "identidade_visual_cores": "#2563EB",
+            "provas_sociais": "Clientes satisfeitos",
+            "contato_endereco": "Entre em contato",
+            "iframe_mapa": ""
+        }
+
+    # 2. Mapear Imagens (CORREÇÃO CRÍTICA: Busca na raiz da pasta, não em subpastas)
     pasta_instagram = f"{pasta_base_cliente}/instagram_downloads_apify"
-    caminhos_imagens = glob.glob(f"{pasta_instagram}/*/*.jpg")
-    quantidade_fotos = len(caminhos_imagens[:10])
+    caminhos_imagens = glob.glob(f"{pasta_instagram}/*.jpg")
+    caminhos_imagens.sort()
+    
+    # Reorganiza para que foto_perfil.jpg seja sempre a primeira (imagem_1)
+    foto_perfil_path = f"{pasta_instagram}/foto_perfil.jpg"
+    outras_fotos = [img for img in caminhos_imagens if "foto_perfil" not in img]
+    
+    lista_final_imagens = []
+    if os.path.exists(foto_perfil_path):
+        lista_final_imagens.append(foto_perfil_path)
+    lista_final_imagens.extend(outras_fotos)
+    
+    # Limita a 10 imagens para o site não ficar pesado no GitHub Pages
+    lista_final_imagens = lista_final_imagens[:10]
 
-    prompt_mestre = f"""Atue como um Desenvolvedor Front-end Sênior e Copywriter Especialista em Alta Conversão.
-A partir das informações do cliente fornecidas no final deste prompt, escreva o código completo de um Site Institucional Robusto e completo em um único arquivo index.html (com todo o CSS embutido na tag <style>).
-
-REGRAS DE DESENVOLVIMENTO (SIGA RIGOROSAMENTE):
-Proibido Economizar Código: Escreva o script de fora a fora. Não abrevie o código, não crie módulos incompletos e não use placeholders como "adicione o resto aqui". Eu preciso da página 100% pronta para ir ao ar.
-Design e UX Guiados pelo Nicho: Adapte a identidade visual estritamente ao nicho da empresa.
-Se for um nicho fofo/descontraído (ex: pet shop, infantil), use bordas arredondadas (border-radius alto), cores vibrantes, tipografia amigável e tom de voz acolhedor.
-Se for um nicho sério/corporativo (ex: advocacia, contabilidade), use formas retas, cantos quadrados, cores sóbrias (azul marinho, dourado, cinza), tipografia serifada ou elegante e tom de voz incisivo.
-Se for intermediário (ex: estética, unhas, arquitetura), equilibre elegância com modernidade.
-Tecnologia e Animações Modernas: Utilize variáveis CSS no :root para facilitar alterações. Inclua animações fluidas, efeitos de hover avançados, bibliotecas como AOS.js para animações ao rolar a tela, e elementos dinâmicos (como galerias com carrossel infinito).
-Estrutura de Conversão: A página deve conter: Header fixo, Hero Section de impacto, Faixa de Benefícios, Sobre a Empresa/Profissional, Serviços/Produtos em formato de cards, Seção de Chamada para Ação (CTA) em destaque, Galeria de Fotos, FAQ (em tag <details>), Mapa (iframe) e Footer completo.
-ATENÇÃO AO PORTFÓLIO/GALERIA: Inclua uma seção de Galeria de Fotos/Portfólio APENAS se o nicho for visual (ex: pet shop, estética, arquitetura, reformas). Se for um nicho estritamente corporativo ou consultivo (ex: advocacia, contabilidade, seguros), NÃO crie a seção de galeria.
-SEO Técnico e Gatilhos: Inclua Meta Tags otimizadas, botões flutuantes e fixos do WhatsApp pulsantes, e estruturação semântica do HTML (h1, h2, seções claras).
-Assinatura Obrigatória da Agência: No Footer, inclua os direitos reservados do cliente e adicione a assinatura exata: Desenvolvido por <a href="https://epiverso.com" target="_blank" style="color: var(--secondary); font-weight: bold; text-decoration: none;">EPIVERSO</a>. O link deve sempre abrir em uma nova aba e usar a cor secundária ou de destaque do tema para chamar a atenção.
-DADOS DO CLIENTE:
-Nome e Nicho: [Cole a resposta aqui]
-O Grande Problema: [Cole a resposta aqui]
-A Solução (Serviços): [Cole a resposta aqui]
-Diferencial: [Cole a resposta aqui]
-Autoridade (Sobre): [Cole a resposta aqui]
-Perguntas Frequentes FAQ: [Cole a resposta aqui]
-Identidade Visual/Cores: [Cole a resposta aqui]
-Contato/Endereço: [Cole a resposta aqui]
-Provas Sociais: [Cole a resposta aqui]
-iframe do mapa: [Cole a resposta aqui]
-quantas fotos no portfólio: [Cole a resposta aqui]
-Baseado nisso, gere o código completo de forma clean um site limpo e lindo e muito profissional!
-na parte das fotos você sempre vai colocar foto1.webp, foto2.webp...  que é como vou subir nessa ordem, sempre
-o site deve sempre ser extremamente responsivo, para celulares, tabletes e computadores
-traga sempre um design moderno fuja do que esta acostumado icones que não usa, tire essa cara de ia se inpire em sites que são lindos e modernos sem fugir do que ja foi proposto antes
-
-DADOS DO CLIENTE:
-{briefing_texto}
-quantas fotos no portfólio: {quantidade_fotos}"""
+    # 3. Prompt Mestre para o Gemini (Gerador de Código)
+    prompt_mestre = f"""
+    Atue como um Desenvolvedor Front-end Sênior e Copywriter Especialista em Alta Conversão.
+    Crie um site institucional completo, moderno e responsivo em um único arquivo HTML.
+    Use Tailwind CSS via CDN para estilização (rápido, bonito e sem arquivos externos).
+    
+    DADOS DO CLIENTE (JSON):
+    {json.dumps(dados, ensure_ascii=False, indent=2)}
+    
+    INSTRUÇÕES DE IMAGENS:
+    Você tem acesso a {len(lista_final_imagens)} imagens locais que serão hospedadas na pasta 'assets/'.
+    No código HTML, referencie-as EXATAMENTE como: 'assets/imagem_1.jpg', 'assets/imagem_2.jpg', 'assets/imagem_3.jpg', etc.
+    - Use 'assets/imagem_1.jpg' como a imagem principal (Hero Section ou Sobre).
+    - Use as demais em uma seção de Galeria ou Serviços.
+    
+    ESTRUTURA OBRIGATÓRIA DO SITE:
+    1. Header (Logo/Nome e Menu de navegação suave).
+    2. Hero Section (Título forte baseado no "Grande Problema", subtítulo com a "Solução", e botão CTA).
+    3. Seção Sobre (Baseada em "Autoridade").
+    4. Seção Serviços/Soluções (Baseada em "A Solução").
+    5. Seção Diferenciais (Por que escolher).
+    6. Seção Depoimentos (Baseada em "Provas Sociais").
+    7. Seção FAQ.
+    8. Seção de Contato e Localização (Incluir o iframe do mapa fornecido no JSON e os dados de contato).
+    9. Footer simples.
+    
+    IDENTIDADE VISUAL:
+    Use as cores sugeridas em "identidade_visual_cores". Se não houver HEX, use uma paleta profissional e moderna que combine com o nicho.
+    
+    FORMATO DE SAÍDA:
+    Retorne APENAS o código HTML cru. Não use ```html ... ``` markdown. Apenas o código puro começando com <!DOCTYPE html>.
+    """
 
     configuracao = types.GenerateContentConfig(
-        temperature=0.4, # Temperatura reduzida para focar em código e evitar respostas criativas longas
-        max_output_tokens=8192 
+        temperature=0.7,
+        response_mime_type="text/plain" # Queremos texto puro (HTML)
     )
 
     try:
         resposta = client.models.generate_content(
             model='gemini-2.5-flash',
-            contents=prompt_mestre,
+            contents=[prompt_mestre],
             config=configuracao
         )
+        html_gerado = resposta.text
         
-        texto_bruto = resposta.text
-        
-        # --- FILTRO BLINDADO 2.0 (Expressões Regulares) ---
-        # Varre a resposta e recorta o HTML, eliminando qualquer conversa que a IA tenha escrito antes
-        match = re.search(r'(<!DOCTYPE html>|<html)', texto_bruto, re.IGNORECASE)
-        if match:
-            codigo_limpo = texto_bruto[match.start():]
-        else:
-            codigo_limpo = texto_bruto
+        # Limpeza de segurança caso o Gemini insira markdown mesmo pedindo para não
+        if html_gerado.startswith("```html"):
+            html_gerado = html_gerado[7:-3]
+        if html_gerado.startswith("```"):
+            html_gerado = html_gerado[3:-3]
             
-        # Limpa as crases de formatação do Markdown que possam sobrar
-        codigo_limpo = codigo_limpo.replace("```html", "").replace("```", "").strip()
-        
-        # Trava de segurança final: Se a IA não fechou o arquivo, nós garantimos que não vai quebrar o layout
-        if not codigo_limpo.endswith("</html>"):
-            codigo_limpo += "\n</body>\n</html>"
-            
-        return codigo_limpo, caminhos_imagens[:10]
+        return html_gerado.strip(), lista_final_imagens
         
     except Exception as e:
-        return None, f"Erro na API do Gemini ao gerar o código: {str(e)}"
+        return None, f"Erro na API do Gemini ao gerar o site: {str(e)}"
