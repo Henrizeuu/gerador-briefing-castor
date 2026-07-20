@@ -31,7 +31,7 @@ def rodar_extracao(url_insta, url_maps):
             "maxRetries": 5,
             "proxy": {
                 "useApifyProxy": True,
-                "apifyProxyGroups": ["BUYPROXIES94952"]
+                "apifyProxyGroups": ["GOOGLE_SERP"]
             }
         }
         
@@ -82,7 +82,7 @@ def rodar_extracao(url_insta, url_maps):
             "scrape_reels": False,
             "proxy": {
                 "useApifyProxy": True,
-                "apifyProxyGroups": ["BUYPROXIES94952"]
+                "apifyProxyGroups": ["GOOGLE_SERP"]
             }
         }
         
