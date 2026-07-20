@@ -1,91 +1,53 @@
-# Gerador de Briefing com IA
+---
+title: Briefing Castor - Scraper & Gerador de Briefing
+emoji: 🦫
+colorFrom: gray
+colorTo: black
+sdk: docker
+pinned: false
+license: mit
+---
 
-Aplicação web para extrair avaliações do Google Maps e gerar briefings profissionais usando IA.
+# Briefing Castor
+
+Uma aplicação completa para extrair dados do Google Maps, gerar briefings profissionais com IA e fazer deploy automático de sites.
 
 ## Funcionalidades
 
-- 🕵️ Extração de avaliações do Google Maps via Apify
-- 🤖 Análise de sentimentos e geração de briefing com Google Gemini
-- 🎨 Interface moderna e responsiva em preto e branco
-- 📱 Totalmente compatível com dispositivos móveis
+- 🗺️ **Scraper Google Maps**: Busca avaliações, notas, fotos e informações de empresas
+- 🤖 **IA Gemini**: Gera briefings completos e profissionais automaticamente
+- 🚀 **Deploy Automático**: Publica sites no GitHub Pages com um clique
+- 🎨 **Frontend Moderno**: Interface clean preto e branco profissional
 
-## Deploy no Hugging Face Spaces
+## Como Usar
 
-### Passo 1: Criar um novo Space
-1. Acesse https://huggingface.co/spaces
-2. Clique em "Create new Space"
-3. Escolha um nome (ex: `seu-usuario/gerador-briefing`)
-4. Selecione **Docker** como SDK
-5. Escolha o plano **Free** (CPU básico)
-6. Clique em "Create Space"
+1. Configure suas chaves de API nas configurações do Space/Render:
+   - `GEMINI_API_KEY`: Sua chave da API Google Gemini
+   - `APIFY_API_TOKEN`: Seu token da Apify para scraping
 
-### Passo 2: Configurar o Space
-No seu novo Space, crie os seguintes arquivos:
+2. Digite o termo de busca do Google Maps (ex: "Advogados") e a localização (ex: "São Paulo SP")
 
-#### Dockerfile
-```dockerfile
-FROM python:3.10-slim
+3. Clique em "Extrair Dados" para coletar as informações
 
-WORKDIR /app
+4. Gere o briefing com IA ou faça deploy do site
 
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+## Tecnologias
 
-COPY . .
+- Python + Flask (Backend)
+- HTML/CSS/JS (Frontend Profissional)
+- Google Gemini (IA)
+- Apify (Web Scraping)
+- Docker/Gunicorn (Deploy)
 
-EXPOSE 7860
+## Deploy Gratuito
 
-CMD ["python", "app.py"]
-```
+Esta aplicação pode ser deployada gratuitamente em:
+- **Render.com** (Recomendado) - Veja `DEPLOY_RENDER.md`
+- Hugging Face Spaces (SDK Docker)
+- Fly.io
+- Railway.app
 
-#### requirements.txt
-```
-flask
-flask-cors
-requests
-google-generativeai
-pydantic
-gunicorn
-```
+## Links Úteis
 
-#### app.py
-(Copie o conteúdo do app.py deste repositório)
-
-#### index.html
-(Copie o conteúdo do index.html deste repositório)
-
-### Passo 3: Configurar Variáveis de Ambiente
-No seu Space, vá em "Settings" > "Variables" e adicione:
-- `GEMINI_API_KEY`: Sua chave da API do Google Gemini
-- `APIFY_API_TOKEN`: Seu token da API da Apify
-
-### Passo 4: Aguardar o Deploy
-O Hugging Face irá automaticamente construir e deployar sua aplicação. Isso leva cerca de 2-5 minutos.
-
-## Uso Local
-
-```bash
-# Instalar dependências
-pip install -r requirements.txt
-
-# Configurar variáveis de ambiente
-export GEMINI_API_KEY="sua-chave-gemini"
-export APIFY_API_TOKEN="seu-token-apify"
-
-# Rodar a aplicação
-python app.py
-```
-
-Acesse http://localhost:8080
-
-## Estrutura dos Arquivos
-
-- `app.py` - Backend Flask com APIs de scraping e análise
-- `index.html` - Frontend HTML/CSS/JS
-- `requirements.txt` - Dependências Python
-- `Dockerfile` - Configuração para deploy no Hugging Face
-- `README.md` - Este arquivo
-
-## Licença
-
-MIT
+- [Código Fonte](https://github.com/seu-usuario/briefing-castor)
+- [Guia de Deploy Render](DEPLOY_RENDER.md)
