@@ -109,16 +109,17 @@ def rodar_extracao(url_insta, url_maps):
     print("✅ Instagram concluído!")
 
     # ==========================================
-    # 3. EXTRAÇÃO DO GOOGLE MAPS (CORRIGIDO)
+    # 3. EXTRAÇÃO DO GOOGLE MAPS (COM DIAGNÓSTICO DE ERRO)
     # ==========================================
     print("🗺️ [2/2] Extraindo dados do Google Maps...")
     texto_completo_maps = ""
     
     if not url_maps or url_maps.strip() == "":
-        print("⚠️ URL do Maps não fornecida, criando arquivo vazio...")
+        print("️ URL do Maps não fornecida, criando arquivo vazio...")
         texto_completo_maps = "Nenhuma informação do Google Maps fornecida."
     else:
-        # USANDO O ACTOR CORRETO: compass/crawler-google-places
+        from apify_client import ApifyApiError # Importa a classe de erro da Apify
+
         run_input_maps = {
             "startUrls": [{"url": url_maps}],
             "language": "pt-BR",
@@ -139,17 +140,15 @@ def rodar_extracao(url_insta, url_maps):
         print(f"🚀 Iniciando scraper do Maps com URL: {url_maps}")
         
         try:
-            # REMOVIDO: wait_secs e timeout_secs (o .call() já espera terminar)
-            run_maps = client.actor("compass/crawler-google-places").call(
-                run_input=run_input_maps
-            )
+            # Tenta rodar o actor
+            run_maps = client.actor("compass/crawler-google-places").call(run_input=run_input_maps)
             
-            print(f"✅ Run do Maps finalizada. Dataset ID: {run_maps['defaultDatasetId']}")
+            print(f"✅ Run do Maps finalizada. Dataset ID: {run_maps.default_dataset_id}")
             
-            dados = list(client.dataset(run_maps["defaultDatasetId"]).iterate_items())
+            dados = list(client.dataset(run_maps.default_dataset_id).iterate_items())
             
             if not dados:
-                print("⚠️ Nenhum dado retornado do Maps.")
+                print("️ Nenhum dado retornado do Maps.")
                 texto_completo_maps = "Nenhum dado foi extraído do Google Maps."
             else:
                 empresa = dados[0]
@@ -173,8 +172,22 @@ def rodar_extracao(url_insta, url_maps):
                     data_rev = rev.get('publishedAt', '')
                     texto_completo_maps += f"- [{autor}] ({data_rev}): {texto_rev}\n"
                     
+        except ApifyApiError as e:
+            # AQUI ESTÁ A MÁGICA: VAMOS VER O QUE A API DISSE
+            print(f"❌ A API da Apify rejeitou a requisição do Maps!")
+            print(f"🔴 Status Code (HTTP): {e.status_code}")
+            print(f"🔴 Mensagem de Erro da API: {e.message}")
+            print(f"🔴 Tipo de Erro: {e.type}")
+            
+            if e.status_code == 402:
+                print("💸 MOTIVO PROVÁVEL: Você atingiu o limite de $5.00 do plano gratuito da Apify. Adicione créditos ou espere o mês virar.")
+            elif e.status_code == 400:
+                print("️ MOTIVO PROVÁVEL: O formato do input está inválido para este actor.")
+                
+            texto_completo_maps = f"Erro na API do Maps: {e.message}"
+            
         except Exception as e:
-            print(f"❌ Erro ao buscar dados do Maps: {e}")
+            print(f" Erro genérico ao buscar dados do Maps: {e}")
             import traceback
             traceback.print_exc()
             texto_completo_maps = f"Erro ao extrair dados do Google Maps: {str(e)}"
