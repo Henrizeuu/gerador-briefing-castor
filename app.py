@@ -24,15 +24,17 @@ if st.button("Gerar Análise Profissional"):
                 url_insta_tratada = f"https://www.instagram.com/{url_insta_tratada}/"
             
             url_maps_tratada = maps_input.strip() if maps_input else ""
-            iframe_pronto = "" # Inicializa a variável do Iframe
+            iframe_pronto = "" 
             
             if url_maps_tratada and not url_maps_tratada.startswith("http"):
                 termo_codificado = urllib.parse.quote(url_maps_tratada)
-                url_maps_tratada = f"https://www.google.com/maps/search/?api=1&query={termo_codificado}"
                 
+                # A CORREÇÃO ESTÁ AQUI: Removemos a linha que alterava a url_maps_tratada!
                 # FABRICA O IFRAME HTML AQUI
                 iframe_pronto = f'<iframe src="https://maps.google.com/maps?q={termo_codificado}&t=&z=14&ie=UTF8&iwloc=&output=embed" width="100%" height="400" style="border:0;" allowfullscreen="" loading="lazy"></iframe>'
 
+            # Chama o nosso novo scraper nativo passando o texto limpo
+            pasta_do_cliente = scraper_dados.rodar_extracao(url_insta_tratada, url_maps_tratada)
             # Chama o nosso novo scraper nativo
             pasta_do_cliente = scraper_dados.rodar_extracao(url_insta_tratada, url_maps_tratada)
             
