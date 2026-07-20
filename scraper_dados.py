@@ -108,81 +108,81 @@ def rodar_extracao(url_insta, url_maps):
         f.write(texto_completo_insta)
     print("✅ Instagram concluído!")
 
-        # ==========================================
-        # 3. EXTRAÇÃO DO GOOGLE MAPS (CORRIGIDO)
-        # ==========================================
-        print("🗺️ [2/2] Extraindo dados do Google Maps...")
-        texto_completo_maps = ""
+    # ==========================================
+    # 3. EXTRAÇÃO DO GOOGLE MAPS (CORRIGIDO)
+    # ==========================================
+    print("🗺️ [2/2] Extraindo dados do Google Maps...")
+    texto_completo_maps = ""
+    
+    if not url_maps or url_maps.strip() == "":
+        print("️ URL do Maps não fornecida, criando arquivo vazio...")
+        texto_completo_maps = "Nenhuma informação do Google Maps fornecida."
+    else:
+        # USANDO O ACTOR CORRETO: compass/crawler-google-places
+        run_input_maps = {
+            "startUrls": [{"url": url_maps}],
+            "language": "pt-BR",
+            "maxReviews": 50,  # Quantidade de reviews
+            "reviewsSort": "highestRanking",
+            "scrapeReviewsPersonalData": True,
+            "scrapeContacts": True,  # ️ IMPORTANTE: Extrai telefone/site
+            "maxImages": 0,
+            "scrapeSocialMediaProfiles": {
+                "facebooks": False, 
+                "instagrams": False, 
+                "youtubes": False, 
+                "tiktoks": False, 
+                "twitters": False
+            },
+        }
         
-        if not url_maps or url_maps.strip() == "":
-            print("️ URL do Maps não fornecida, criando arquivo vazio...")
-            texto_completo_maps = "Nenhuma informação do Google Maps fornecida."
-        else:
-            # USANDO O ACTOR CORRETO: compass/crawler-google-places
-            run_input_maps = {
-                "startUrls": [{"url": url_maps}],
-                "language": "pt-BR",
-                "maxReviews": 50,  # Quantidade de reviews
-                "reviewsSort": "highestRanking",
-                "scrapeReviewsPersonalData": True,
-                "scrapeContacts": True,  # ️ IMPORTANTE: Extrai telefone/site
-                "maxImages": 0,
-                "scrapeSocialMediaProfiles": {
-                    "facebooks": False, 
-                    "instagrams": False, 
-                    "youtubes": False, 
-                    "tiktoks": False, 
-                    "twitters": False
-                },
-            }
+        print(f"🚀 Iniciando scraper do Maps com URL: {url_maps}")
+        
+        try:
+            # ACTOR CORRETO AQUI!
+            run_maps = client.actor("compass/crawler-google-places").call(
+                run_input=run_input_maps, 
+                wait_secs=180  # 3 minutos de timeout
+            )
             
-            print(f"🚀 Iniciando scraper do Maps com URL: {url_maps}")
+            print(f"✅ Run do Maps finalizada. Dataset ID: {run_maps.default_dataset_id}")
             
-            try:
-                # ACTOR CORRETO AQUI!
-                run_maps = client.actor("compass/crawler-google-places").call(
-                    run_input=run_input_maps, 
-                    wait_secs=180  # 3 minutos de timeout
-                )
+            dados = list(client.dataset(run_maps.default_dataset_id).iterate_items())
+            
+            if not dados:
+                print("️ Nenhum dado retornado do Maps.")
+                texto_completo_maps = "Nenhum dado foi extraído do Google Maps."
+            else:
+                empresa = dados[0]
                 
-                print(f"✅ Run do Maps finalizada. Dataset ID: {run_maps.default_dataset_id}")
+                texto_completo_maps += "=== DADOS DO NEGÓCIO (MAPS) ===\n"
+                texto_completo_maps += f"Nome: {empresa.get('title', 'N/A')}\n"
+                texto_completo_maps += f"Categoria: {empresa.get('categoryName', 'N/A')}\n"
+                texto_completo_maps += f"Endereço: {empresa.get('address', 'N/A')}\n"
+                texto_completo_maps += f"Telefone: {empresa.get('phone', 'N/A')}\n"
+                texto_completo_maps += f"Website: {empresa.get('website', 'N/A')}\n"
+                texto_completo_maps += f"Avaliação Geral: {empresa.get('totalScore', 0)} estrelas ({empresa.get('reviewsCount', 0)} avaliações)\n\n"
+    
+                texto_completo_maps += "=== AVALIAÇÕES DE CLIENTES (PROVA SOCIAL) ===\n"
+                reviews = empresa.get('reviews', [])
+                if not reviews:
+                    texto_completo_maps += "Nenhuma avaliação textual encontrada no Maps.\n"
                 
-                dados = list(client.dataset(run_maps.default_dataset_id).iterate_items())
-                
-                if not dados:
-                    print("️ Nenhum dado retornado do Maps.")
-                    texto_completo_maps = "Nenhum dado foi extraído do Google Maps."
-                else:
-                    empresa = dados[0]
+                for rev in reviews[:20]:  # Limita a 20 reviews
+                    autor = rev.get('author', 'Anônimo')
+                    texto_rev = rev.get('text', 'Sem texto')
+                    data_rev = rev.get('publishedAt', '')
+                    texto_completo_maps += f"- [{autor}] ({data_rev}): {texto_rev}\n"
                     
-                    texto_completo_maps += "=== DADOS DO NEGÓCIO (MAPS) ===\n"
-                    texto_completo_maps += f"Nome: {empresa.get('title', 'N/A')}\n"
-                    texto_completo_maps += f"Categoria: {empresa.get('categoryName', 'N/A')}\n"
-                    texto_completo_maps += f"Endereço: {empresa.get('address', 'N/A')}\n"
-                    texto_completo_maps += f"Telefone: {empresa.get('phone', 'N/A')}\n"
-                    texto_completo_maps += f"Website: {empresa.get('website', 'N/A')}\n"
-                    texto_completo_maps += f"Avaliação Geral: {empresa.get('totalScore', 0)} estrelas ({empresa.get('reviewsCount', 0)} avaliações)\n\n"
-        
-                    texto_completo_maps += "=== AVALIAÇÕES DE CLIENTES (PROVA SOCIAL) ===\n"
-                    reviews = empresa.get('reviews', [])
-                    if not reviews:
-                        texto_completo_maps += "Nenhuma avaliação textual encontrada no Maps.\n"
-                    
-                    for rev in reviews[:20]:  # Limita a 20 reviews
-                        autor = rev.get('author', 'Anônimo')
-                        texto_rev = rev.get('text', 'Sem texto')
-                        data_rev = rev.get('publishedAt', '')
-                        texto_completo_maps += f"- [{autor}] ({data_rev}): {texto_rev}\n"
-                        
-            except Exception as e:
-                print(f"❌ Erro ao buscar dados do Maps: {e}")
-                import traceback
-                traceback.print_exc()
-                texto_completo_maps = f"Erro ao extrair dados do Google Maps: {str(e)}"
-        
-        with open(f"{pasta_maps}/01_dados_maps.txt", 'w', encoding='utf-8') as f:
-            f.write(texto_completo_maps)
-        print("✅ Maps concluído!")
+        except Exception as e:
+            print(f"❌ Erro ao buscar dados do Maps: {e}")
+            import traceback
+            traceback.print_exc()
+            texto_completo_maps = f"Erro ao extrair dados do Google Maps: {str(e)}"
+    
+    with open(f"{pasta_maps}/01_dados_maps.txt", 'w', encoding='utf-8') as f:
+        f.write(texto_completo_maps)
+    print("✅ Maps concluído!")
 
     print("🎉 EXTRAÇÃO TOTAL FINALIZADA!")
     return pasta_base
