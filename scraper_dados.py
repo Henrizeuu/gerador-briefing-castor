@@ -24,17 +24,15 @@ def rodar_extracao(url_insta, url_maps):
     try:
         print(f"🦫 Iniciando extração completa do Instagram para: @{nome_cliente}")
         
-        # Payload simplificado exigido pela documentação[cite: 14]
         run_input_insta = {
             "usernames": [nome_cliente]
         }
         
-        # Chama o novo Actor que faz o bypass nativo
-        run_insta = client.actor("PP60E1JIfagMaQxIP").call(run_input=run_insta)
+        # A CORREÇÃO ESTÁ AQUI: passei a variável run_input_insta correta!
+        run_insta = client.actor("PP60E1JIfagMaQxIP").call(run_input=run_input_insta)
         
         nome_completo, bio, seguidores, categoria, foto_perfil_url = "", "", 0, "N/A", ""
         
-        # Usa .default_dataset_id nativo do Python, ignorando o erro de sintaxe da documentação deles[cite: 15]
         for item in client.dataset(run_insta.default_dataset_id).iterate_items():
             
             # --- SALVANDO DADOS DO PERFIL ---
@@ -42,7 +40,6 @@ def rodar_extracao(url_insta, url_maps):
             bio = item.get("biography", "")
             seguidores = item.get("followersCount", 0)
             categoria = item.get("businessCategoryName", "N/A")
-            # Tenta pegar a foto em HD primeiro[cite: 14]
             foto_perfil_url = item.get("hdProfilePicUrl") or item.get("profilePicUrl", "")
             
             # --- SALVANDO MÍDIAS E LEGENDAS DOS POSTS ---
@@ -59,7 +56,6 @@ def rodar_extracao(url_insta, url_maps):
                     with open(os.path.join(pasta_post, "descricao.txt"), "w", encoding="utf-8") as f:
                         f.write(legenda)
                 
-                # A documentação define a mídia de preview no displayUrl[cite: 14]
                 img_url = post.get("displayUrl", "")
                 if img_url:
                     try:
@@ -67,9 +63,8 @@ def rodar_extracao(url_insta, url_maps):
                     except:
                         pass
             
-            break # Garante que processa apenas o perfil alvo
+            break 
             
-        # Gera o TXT do perfil para o Gemini ler
         with open(os.path.join(pasta_insta, "dados_perfil.txt"), "w", encoding="utf-8") as f:
             f.write(f"Nome: {nome_completo}\nBio: {bio}\nSeguidores: {seguidores}\nCategoria: {categoria}\n")
             
