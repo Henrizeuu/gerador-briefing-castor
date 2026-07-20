@@ -1,7 +1,7 @@
 import os
 import urllib.request
+import urllib.parse
 from apify_client import ApifyClient
-from playwright.sync_api import sync_playwright
 
 def rodar_extracao(url_insta, url_maps):
     nome_cliente = url_insta.strip('/').split('/')[-1]
@@ -24,76 +24,72 @@ def rodar_extracao(url_insta, url_maps):
     try:
         print(f"🦫 Iniciando extração do Instagram para: @{nome_cliente}")
         
-        # --- PASSO A: Scraper Low-cost para os Posts ---
+        # --- PASSO A: Scraper Lowcost para os Posts ($0.30/1K) ---
         run_input_barato = {
-            "usernames": [nome_cliente],
-            "postsPerProfile": 12, 
+            "usernames": [nome_cliente], # Lê a lista de arrobas sem o @[cite: 9]
+            "postsPerProfile": 12,       # Limite suave de paginação[cite: 9]
             "proxy": {
                 "useApifyProxy": True,
-                "apifyProxyGroups": ["RESIDENTIAL"],
+                "apifyProxyGroups": ["RESIDENTIAL"], # Proxies residenciais para evitar bloqueios[cite: 9]
             }
         }
+        
         run_barato = client.actor("sones/instagram-posts-scraper-lowcost").call(run_input=run_input_barato)
         
-        nome_completo, foto_perfil_url = "", ""
-        
-        for item in client.dataset(run_barato.default_dataset_id).iterate_items():
-            if "user" in item and not nome_completo:
-                nome_completo = item["user"].get("full_name", "")
-                foto_perfil_url = item["user"].get("profile_pic_url", "")
+        for item in client.dataset(run_barato["defaultDatasetId"]).iterate_items():[cite: 8]
+            shortcode = item.get("code") # Puxa o shortcode da URL[cite: 9]
+            if not shortcode: continue
             
-            if "code" in item:
-                shortcode = item["code"]
-                pasta_post = os.path.join(pasta_insta, shortcode)
-                os.makedirs(pasta_post, exist_ok=True)
+            pasta_post = os.path.join(pasta_insta, shortcode)
+            os.makedirs(pasta_post, exist_ok=True)
+            
+            # Garimpa a legenda corretamente navegando no objeto caption[cite: 9]
+            legenda = ""
+            if isinstance(item.get("caption"), dict):
+                legenda = item["caption"].get("text", "")
                 
-                legenda = item.get("caption", {}).get("text", "") if item.get("caption") else ""
-                if legenda:
-                    with open(os.path.join(pasta_post, "descricao.txt"), "w", encoding="utf-8") as f:
-                        f.write(legenda)
-                
-                # --- A CORREÇÃO ESTÁ AQUI: Lendo a coluna image_url do seu print ---
-                img_url = item.get("image_url")
-                
-                # Fallbacks caso seja um carrossel ou vídeo sem imagem na raiz
-                if not img_url:
-                    try:
-                        if item.get("carousel_media") and len(item["carousel_media"]) > 0:
-                            img_url = item["carousel_media"][0].get("image_url") or item["carousel_media"][0].get("image_versions2", {}).get("candidates", [{}])[0].get("url", "")
-                        elif item.get("image_versions2") and item["image_versions2"].get("candidates"):
-                            img_url = item["image_versions2"]["candidates"][0].get("url", "")
-                    except:
-                        pass
-                
-                # Salva a imagem na pasta
-                if img_url:
-                    try:
-                        urllib.request.urlretrieve(img_url, os.path.join(pasta_post, "imagem.jpg"))
-                    except:
-                        pass
-        
-        # --- PASSO B: Scraper Premium para o Perfil (Bio, Seguidores, etc) ---
+            if legenda:
+                with open(os.path.join(pasta_post, "descricao.txt"), "w", encoding="utf-8") as f:
+                    f.write(legenda)
+            
+            # Tenta baixar a imagem (Raiz ou Carrossel) navegando no image_versions2[cite: 9]
+            img_url = ""
+            try:
+                if item.get("carousel_media"):
+                    img_url = item["carousel_media"][0].get("image_versions2", {}).get("candidates", [{}])[0].get("url", "")
+                elif item.get("image_versions2"):
+                    img_url = item["image_versions2"].get("candidates", [{}])[0].get("url", "")
+            except Exception:
+                pass
+            
+            if img_url:
+                try:
+                    urllib.request.urlretrieve(img_url, os.path.join(pasta_post, "imagem.jpg"))
+                except:
+                    pass
+
+        # --- PASSO B: Scraper Premium para o Perfil ($0.99/1K) ---
         run_input_caro = {
-            "profiles": [nome_cliente],
-            "scrape_profile_data": True,
-            "scrape_posts": False,
-            "scrape_reels": False,
+            "instagramUrls": [f"https://www.instagram.com/{nome_cliente}/"], # Injeção de URLs para extrair perfil[cite: 10]
+            "scrapeProfile": True,
+            "scrapePosts": False, # Desativado para economizar custo[cite: 10]
+            "scrapeReels": False  # Desativado para economizar custo[cite: 10]
         }
+        
         run_caro = client.actor("hpix/instagram-scraper").call(run_input=run_input_caro)
         
-        dados_caros = {}
-        for item in client.dataset(run_caro.default_dataset_id).iterate_items():
-            if item.get("kind") == "profile":
-                dados_caros = item.get("data", {})
-                break
-            elif "biography" in item:
-                dados_caros = item
-                break
-
-        bio = dados_caros.get("biography", "") or dados_caros.get("bio", "")
-        seguidores = dados_caros.get("followers", 0) or dados_caros.get("followersCount", 0) or dados_caros.get("follower_count", 0)
-        categoria = dados_caros.get("business_category_name", "N/A") or dados_caros.get("category_name", "N/A")
-
+        nome_completo, bio, seguidores, categoria, foto_perfil_url = "", "", 0, "N/A", ""
+        
+        for item in client.dataset(run_caro["defaultDatasetId"]).iterate_items():
+            dados = item.get("data", {}) if "data" in item else item
+            
+            nome_completo = dados.get("full_name", "")
+            bio = dados.get("biography", "") or dados.get("bio", "")
+            seguidores = dados.get("followers", 0) or dados.get("follower_count", 0)
+            foto_perfil_url = dados.get("profile_pic_url", "")
+            categoria = dados.get("business_category_name", "N/A") or dados.get("category_name", "N/A")
+            break # Trava no primeiro resultado
+            
         with open(os.path.join(pasta_insta, "dados_perfil.txt"), "w", encoding="utf-8") as f:
             f.write(f"Nome: {nome_completo}\nBio: {bio}\nSeguidores: {seguidores}\nCategoria: {categoria}\n")
             
@@ -107,46 +103,43 @@ def rodar_extracao(url_insta, url_maps):
         print(f"Aviso na extração do Instagram com Apify: {e}")
 
     # ---------------------------------------------------------
-    # 2. EXTRAÇÃO DO GOOGLE MAPS (Via Apify VortexData)
+    # 2. EXTRAÇÃO DO GOOGLE MAPS
     # ---------------------------------------------------------
     if url_maps:
         try:
             print("🗺️ Iniciando extração de provas sociais do Google Maps via Apify...")
-            
-            # Recupera o texto limpo caso o Streamlit tenha enviado uma URL codificada
+
+            # Decodifica a URL limpa gerada pelo Streamlit (Ex: Bayar Advogados, Canoas)
             termo_busca = url_maps
             if "query=" in url_maps:
-                import urllib.parse
                 termo_busca = urllib.parse.unquote(url_maps.split("query=")[1])
-                
+
             run_input_maps = {
-                "searchStringsArray": [termo_busca], # Busca o nome exato da empresa[cite: 2]
-                "maxCrawledPlacesPerSearch": 1,      # Garante que vai pegar só o alvo principal[cite: 2]
-                "maxReviewsPerPlace": 15,            # Puxa 15 avaliações para dar contexto à copy[cite: 2]
-                "reviewsSort": "newest",             # Traz as mais recentes primeiro[cite: 2]
+                "searchStringsArray": [termo_busca], # Input em formato de array exigido pelo Actor[cite: 11]
+                "maxCrawledPlacesPerSearch": 1,      # Garante só a primeira empresa para economizar[cite: 11]
+                "maxReviewsPerPlace": 15,            # Limita a 15 avaliações para passar pro Gemini[cite: 11]
+                "reviewsSort": "newest",             # Traz as mais recentes primeiro[cite: 11]
                 "language": "pt"
             }
-            
-            run_maps = client.actor("AabCualFIriz3X6Fs").call(run_input=run_input_maps)
-            
+
+            run_maps = client.actor("AabCualFIriz3X6Fs").call(run_input=run_input_maps)[cite: 12]
+
             texto_avaliacoes = ""
-            for item in client.dataset(run_maps.default_dataset_id).iterate_items():
-                nome = item.get("title", "Empresa Alvo")
+            for item in client.dataset(run_maps["defaultDatasetId"]).iterate_items():[cite: 12]
+                nome_empresa = item.get("title", "Empresa Alvo")
                 nota = item.get("totalScore", "Sem nota")
                 reviews = item.get("reviews", [])
-                
-                texto_avaliacoes += f"Empresa: {nome} (Nota: {nota})\n\n"
-                
+
+                texto_avaliacoes += f"Empresa: {nome_empresa} (Nota: {nota})\n\n"
+
                 for rev in reviews:
                     autor = rev.get("author", "Anônimo")
-                    texto = rev.get("text", "")
-                    # Filtra apenas avaliações que tenham texto escrito para a IA processar
-                    if texto: 
-                        texto_avaliacoes += f"{autor}: {texto}\n---\n"
-            
-            # Salva no mesmo formato txt que o analise_gemini.py já espera ler
-            caminho_arquivo_maps = os.path.join(pasta_maps, "avaliacoes.txt")
-            with open(caminho_arquivo_maps, "w", encoding="utf-8") as f:
+                    texto_review = rev.get("text", "")
+                    if texto_review:
+                        texto_avaliacoes += f"{autor}: {texto_review}\n---\n"
+
+            # Salva o log final que alimenta o cérebro do Gemini
+            with open(os.path.join(pasta_maps, "avaliacoes.txt"), "w", encoding="utf-8") as f:
                 f.write(texto_avaliacoes[:6000] if texto_avaliacoes else "Nenhuma avaliação com texto encontrada.")
 
         except Exception as e:
