@@ -1,4 +1,5 @@
-streamlit
+flask
+flask-cors
 google-genai
 pillow
 PyGithub

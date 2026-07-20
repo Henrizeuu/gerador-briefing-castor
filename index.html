@@ -1,0 +1,782 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gerador de Briefing Castor</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --black: #0a0a0a;
+            --white: #ffffff;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-400: #9ca3af;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--white);
+            color: var(--black);
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+
+        /* Header */
+        .header {
+            background: var(--black);
+            color: var(--white);
+            padding: 3rem 2rem;
+            text-align: center;
+        }
+
+        .header-logo {
+            font-size: 4rem;
+            margin-bottom: 1rem;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            font-weight: 800;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.5rem;
+            text-transform: uppercase;
+        }
+
+        .header p {
+            font-size: 1.125rem;
+            color: var(--gray-300);
+            font-weight: 300;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        /* Main Container */
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 3rem 2rem;
+        }
+
+        /* Section Cards */
+        .section {
+            background: var(--white);
+            border: 1px solid var(--gray-200);
+            border-radius: 0;
+            padding: 2.5rem;
+            margin-bottom: 2rem;
+            transition: all 0.3s ease;
+        }
+
+        .section:hover {
+            border-color: var(--black);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+
+        .section-header {
+            margin-bottom: 2rem;
+            padding-bottom: 1rem;
+            border-bottom: 2px solid var(--black);
+        }
+
+        .section-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--black);
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .section-subtitle {
+            color: var(--gray-500);
+            font-size: 0.95rem;
+            margin-top: 0.5rem;
+            font-weight: 400;
+        }
+
+        /* Form Grid */
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        /* Input Groups */
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .input-label {
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: var(--gray-700);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .input-field {
+            width: 100%;
+            padding: 1rem 1.25rem;
+            font-size: 1rem;
+            font-family: inherit;
+            border: 1px solid var(--gray-300);
+            background: var(--white);
+            color: var(--black);
+            transition: all 0.2s ease;
+            outline: none;
+        }
+
+        .input-field:focus {
+            border-color: var(--black);
+            box-shadow: 0 0 0 3px rgba(10, 10, 10, 0.1);
+        }
+
+        .input-field::placeholder {
+            color: var(--gray-400);
+        }
+
+        /* Buttons */
+        .btn-container {
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+            margin-top: 2rem;
+        }
+
+        .btn {
+            padding: 1rem 2.5rem;
+            font-size: 1rem;
+            font-weight: 600;
+            font-family: inherit;
+            border: 2px solid var(--black);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .btn-primary {
+            background: var(--black);
+            color: var(--white);
+        }
+
+        .btn-primary:hover {
+            background: var(--white);
+            color: var(--black);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
+        }
+
+        .btn-secondary {
+            background: var(--white);
+            color: var(--black);
+        }
+
+        .btn-secondary:hover {
+            background: var(--black);
+            color: var(--white);
+            transform: translateY(-2px);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* Loading State */
+        .loading-container {
+            display: none;
+            text-align: center;
+            padding: 3rem;
+        }
+
+        .loading-spinner {
+            width: 48px;
+            height: 48px;
+            border: 3px solid var(--gray-200);
+            border-top-color: var(--black);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1.5rem;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .loading-text {
+            font-size: 1rem;
+            color: var(--gray-600);
+            font-weight: 500;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 4px;
+            background: var(--gray-200);
+            margin-top: 1.5rem;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: var(--black);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        /* Results Section */
+        .results-section {
+            display: none;
+        }
+
+        .results-section.active {
+            display: block;
+        }
+
+        .result-card {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            padding: 2rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .result-item {
+            margin-bottom: 1.5rem;
+        }
+
+        .result-item:last-child {
+            margin-bottom: 0;
+        }
+
+        .result-label {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--gray-500);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            margin-bottom: 0.5rem;
+        }
+
+        .result-value {
+            font-size: 1.125rem;
+            color: var(--black);
+            line-height: 1.7;
+        }
+
+        /* JSON Display */
+        .json-display {
+            background: var(--black);
+            color: var(--white);
+            padding: 1.5rem;
+            font-family: 'Courier New', monospace;
+            font-size: 0.875rem;
+            overflow-x: auto;
+            max-height: 400px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        /* Alert Messages */
+        .alert {
+            padding: 1rem 1.5rem;
+            border: 1px solid;
+            margin-bottom: 1.5rem;
+            font-weight: 500;
+        }
+
+        .alert-warning {
+            background: #fffbeb;
+            border-color: #f59e0b;
+            color: #92400e;
+        }
+
+        .alert-success {
+            background: #ecfdf5;
+            border-color: #10b981;
+            color: #065f46;
+        }
+
+        .alert-error {
+            background: #fef2f2;
+            border-color: #ef4444;
+            color: #991b1b;
+        }
+
+        /* Domain Input Section */
+        .domain-section {
+            display: none;
+            margin-top: 2rem;
+            padding-top: 2rem;
+            border-top: 2px solid var(--gray-200);
+        }
+
+        .domain-section.active {
+            display: block;
+        }
+
+        .domain-input-row {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 1rem;
+            align-items: end;
+        }
+
+        /* Footer */
+        .footer {
+            text-align: center;
+            padding: 3rem 2rem;
+            color: var(--gray-500);
+            font-size: 0.875rem;
+            border-top: 1px solid var(--gray-200);
+            margin-top: 4rem;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 1.75rem;
+            }
+
+            .section {
+                padding: 1.5rem;
+            }
+
+            .form-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .domain-input-row {
+                grid-template-columns: 1fr;
+            }
+
+            .btn {
+                width: 100%;
+                justify-content: center;
+            }
+        }
+
+        /* Animations */
+        .fade-in {
+            animation: fadeIn 0.5s ease-in;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="header-logo">🦫</div>
+        <h1>Gerador de Briefing Automatizado</h1>
+        <p>Criação de Estrutura para Páginas Institucionais de Alta Conversão com IA</p>
+    </header>
+
+    <!-- Main Container -->
+    <main class="container">
+        <!-- Input Section -->
+        <section class="section fade-in">
+            <div class="section-header">
+                <h2 class="section-title">
+                    <span>📋</span> Dados do Cliente
+                </h2>
+                <p class="section-subtitle">Preencha as informações abaixo para iniciar a análise automatizada.</p>
+            </div>
+
+            <div id="alertContainer"></div>
+
+            <div class="form-grid">
+                <div class="input-group">
+                    <label class="input-label" for="instagramInput">📸 Instagram do Cliente</label>
+                    <input 
+                        type="text" 
+                        id="instagramInput" 
+                        class="input-field" 
+                        placeholder="@cliente ou https://instagram.com/cliente"
+                        autocomplete="off"
+                    >
+                </div>
+
+                <div class="input-group">
+                    <label class="input-label" for="mapsInput">📍 Google Maps (Opcional)</label>
+                    <input 
+                        type="text" 
+                        id="mapsInput" 
+                        class="input-field" 
+                        placeholder="Ex: Bayar Advogados, Canoas ou Link do Maps"
+                        autocomplete="off"
+                    >
+                </div>
+            </div>
+
+            <div class="btn-container">
+                <button id="generateBtn" class="btn btn-primary" onclick="gerarAnalise()">
+                    <span>🚀</span> Gerar Análise Profissional
+                </button>
+            </div>
+        </section>
+
+        <!-- Loading Section -->
+        <section id="loadingSection" class="loading-container">
+            <div class="loading-spinner"></div>
+            <p id="loadingText" class="loading-text">Processando...</p>
+            <div class="progress-bar">
+                <div id="progressFill" class="progress-fill"></div>
+            </div>
+        </section>
+
+        <!-- Results Section -->
+        <section id="resultsSection" class="results-section">
+            <div class="section fade-in">
+                <div class="section-header">
+                    <h2 class="section-title">
+                        <span>👔</span> Resultado do Briefing
+                    </h2>
+                </div>
+
+                <div id="resultsContent"></div>
+
+                <!-- Domain Input -->
+                <div id="domainSection" class="domain-section">
+                    <div class="section-header" style="border-bottom: 1px solid var(--gray-200);">
+                        <h3 class="section-title" style="font-size: 1.25rem;">
+                            <span>🌐</span> Implantação Automática no GitHub
+                        </h3>
+                    </div>
+
+                    <div class="domain-input-row">
+                        <div class="input-group">
+                            <label class="input-label" for="domainInput">Qual será o subdomínio?</label>
+                            <input 
+                                type="text" 
+                                id="domainInput" 
+                                class="input-field" 
+                                placeholder="bayaradvogados"
+                                autocomplete="off"
+                            >
+                        </div>
+                        <button id="deployBtn" class="btn btn-secondary" onclick="fazerDeploy()">
+                            <span>📤</span> Gerar Site e Subir
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <p>Desenvolvido com 💜 por EpiVerso | Powered by AI & Apify</p>
+    </footer>
+
+    <script>
+        // State management
+        let state = {
+            instagramUrl: '',
+            mapsUrl: '',
+            relatorioFinal: null,
+            pastaCliente: null,
+            iframePronto: ''
+        };
+
+        // Utility functions
+        function showAlert(message, type = 'warning') {
+            const container = document.getElementById('alertContainer');
+            container.innerHTML = `<div class="alert alert-${type}">${message}</div>`;
+        }
+
+        function clearAlert() {
+            document.getElementById('alertContainer').innerHTML = '';
+        }
+
+        function updateLoading(progress, text) {
+            document.getElementById('progressFill').style.width = `${progress}%`;
+            document.getElementById('loadingText').textContent = text;
+        }
+
+        function showLoading(show) {
+            document.getElementById('loadingSection').style.display = show ? 'block' : 'none';
+            document.getElementById('generateBtn').disabled = show;
+        }
+
+        function showResults(show) {
+            const resultsSection = document.getElementById('resultsSection');
+            if (show) {
+                resultsSection.classList.add('active');
+                resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            } else {
+                resultsSection.classList.remove('active');
+            }
+        }
+
+        function processInstagramUrl(input) {
+            let url = input.trim();
+            if (url && !url.startsWith('http')) {
+                if (url.startsWith('@')) {
+                    url = url.substring(1);
+                }
+                url = `https://www.instagram.com/${url}/`;
+            }
+            return url;
+        }
+
+        function generateIframe(mapsInput) {
+            if (!mapsInput || mapsInput.trim() === '') {
+                return '';
+            }
+            
+            const url = mapsInput.trim();
+            if (url.startsWith('http')) {
+                return `<iframe src="${url}" width="100%" height="400" style="border:0;" allowfullscreen="" loading="lazy"></iframe>`;
+            }
+            
+            const encoded = encodeURIComponent(url);
+            return `<iframe src="https://maps.google.com/maps?q=${encoded}&t=&z=14&ie=UTF8&iwloc=&output=embed" width="100%" height="400" style="border:0;" allowfullscreen="" loading="lazy"></iframe>`;
+        }
+
+        async function gerarAnalise() {
+            const instagramInput = document.getElementById('instagramInput').value;
+            const mapsInput = document.getElementById('mapsInput').value;
+
+            if (!instagramInput.trim()) {
+                showAlert('⚠️ Por favor, insira pelo menos o Instagram do cliente.', 'warning');
+                return;
+            }
+
+            clearAlert();
+            showLoading(true);
+
+            try {
+                // Step 1: Process URLs
+                updateLoading(10, '⏳ Processando URLs...');
+                await new Promise(resolve => setTimeout(resolve, 300));
+
+                state.instagramUrl = processInstagramUrl(instagramInput);
+                state.mapsUrl = mapsInput.trim();
+                state.iframePronto = generateIframe(mapsInput);
+
+                updateLoading(30, '🗺️ Gerando mapa de localização...');
+                await new Promise(resolve => setTimeout(resolve, 300));
+
+                // Step 2: Call scraper
+                updateLoading(40, '🦫 Coletando dados do Instagram e Google Maps...');
+                
+                const scraperResponse = await fetch('/api/scraper', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        instagram_url: state.instagramUrl,
+                        maps_url: state.mapsUrl
+                    })
+                });
+
+                if (!scraperResponse.ok) {
+                    throw new Error('Erro na extração de dados');
+                }
+
+                const scraperData = await scraperResponse.json();
+                
+                if (scraperData.error) {
+                    throw new Error(scraperData.error);
+                }
+
+                state.pastaCliente = scraperData.pasta_cliente;
+
+                updateLoading(60, '✅ Dados extraídos com sucesso!');
+                await new Promise(resolve => setTimeout(resolve, 300));
+
+                // Step 3: Call Gemini analysis
+                updateLoading(70, '🧠 Processando estratégia digital e prova social...');
+
+                const analysisResponse = await fetch('/api/analise', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        pasta_cliente: state.pastaCliente,
+                        iframe_pronto: state.iframePronto
+                    })
+                });
+
+                if (!analysisResponse.ok) {
+                    throw new Error('Erro na análise com IA');
+                }
+
+                const analysisData = await analysisResponse.json();
+                state.relatorioFinal = analysisData.relatorio;
+
+                updateLoading(100, '✨ Análise concluída!');
+                await new Promise(resolve => setTimeout(resolve, 500));
+
+                // Display results
+                displayResults();
+                showLoading(false);
+                showResults(true);
+
+            } catch (error) {
+                console.error('Error:', error);
+                showAlert(`❌ Erro: ${error.message}`, 'error');
+                showLoading(false);
+            }
+        }
+
+        function displayResults() {
+            const content = document.getElementById('resultsContent');
+            
+            if (!state.relatorioFinal) {
+                content.innerHTML = '<div class="alert alert-error">Nenhum resultado disponível.</div>';
+                return;
+            }
+
+            try {
+                const data = typeof state.relatorioFinal === 'string' 
+                    ? JSON.parse(state.relatorioFinal) 
+                    : state.relatorioFinal;
+
+                const items = Object.entries(data);
+                const columns = Math.ceil(items.length / 2);
+
+                let html = '<div class="form-grid">';
+                
+                items.forEach(([key, value]) => {
+                    const label = key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+                    const valueStr = typeof value === 'object' 
+                        ? JSON.stringify(value, null, 2) 
+                        : String(value);
+
+                    html += `
+                        <div class="result-card">
+                            <div class="result-item">
+                                <div class="result-label">${label}</div>
+                                <div class="result-value">${valueStr}</div>
+                            </div>
+                        </div>
+                    `;
+                });
+
+                html += '</div>';
+
+                // Add JSON expander
+                html += `
+                    <details style="margin-top: 2rem;">
+                        <summary style="cursor: pointer; font-weight: 600; padding: 1rem; background: var(--gray-50);">📄 Ver JSON Completo</summary>
+                        <div class="json-display" style="margin-top: 1rem;">${JSON.stringify(data, null, 2)}</div>
+                    </details>
+                `;
+
+                content.innerHTML = html;
+
+                // Show domain section
+                document.getElementById('domainSection').classList.add('active');
+
+            } catch (error) {
+                content.innerHTML = `
+                    <div class="alert alert-warning">
+                        ⚠️ Não foi possível formatar como JSON: ${error.message}
+                    </div>
+                    <div class="result-value">${state.relatorioFinal}</div>
+                `;
+            }
+        }
+
+        async function fazerDeploy() {
+            const domainInput = document.getElementById('domainInput').value.trim();
+
+            if (!domainInput) {
+                showAlert('⚠️ Digite o nome do subdomínio antes de subir.', 'warning');
+                return;
+            }
+
+            const deployBtn = document.getElementById('deployBtn');
+            deployBtn.disabled = true;
+            deployBtn.innerHTML = '<span>🤖</span> Processando...';
+
+            try {
+                const response = await fetch('/api/deploy', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        relatorio: state.relatorioFinal,
+                        pasta_cliente: state.pastaCliente,
+                        instagram_url: state.instagramUrl,
+                        dominio: `${domainInput.toLowerCase()}.epiverso.com`
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error('Erro no deploy');
+                }
+
+                const result = await response.json();
+
+                if (result.sucesso) {
+                    showAlert(`🎉 Site implantado com sucesso! Acesse: http://${domainInput.toLowerCase()}.epiverso.com`, 'success');
+                } else {
+                    throw new Error(result.erro || 'Erro desconhecido');
+                }
+
+            } catch (error) {
+                showAlert(`❌ Erro no deploy: ${error.message}`, 'error');
+            } finally {
+                deployBtn.disabled = false;
+                deployBtn.innerHTML = '<span>📤</span> Gerar Site e Subir';
+            }
+        }
+
+        // Enter key support
+        document.getElementById('instagramInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') gerarAnalise();
+        });
+
+        document.getElementById('mapsInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') gerarAnalise();
+        });
+
+        document.getElementById('domainInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') fazerDeploy();
+        });
+    </script>
+</body>
+</html>

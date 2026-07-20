@@ -282,29 +282,37 @@ def rodar_extracao(url_insta, url_maps):
                     
                     # Tentar diferentes formatos de reviews
                     reviews = []
-                    if 'reviews' in empresa and isinstance(empresa['reviews'], list):
-                        reviews = empresa['reviews']
-                        print(f"  - Reviews encontradas em 'reviews': {len(reviews)}")
-                    elif 'reviewsData' in empresa and isinstance(empresa['reviewsData'], list):
-                        reviews = empresa['reviewsData']
-                        print(f"  - Reviews encontradas em 'reviewsData': {len(reviews)}")
-                    elif 'googleReviews' in empresa and isinstance(empresa['googleReviews'], list):
-                        reviews = empresa['googleReviews']
-                        print(f"  - Reviews encontradas em 'googleReviews': {len(reviews)}")
+                    review_keys = ['reviews', 'reviewsData', 'googleReviews', 'reviewList', 'placeReviews', 'reviewsItems']
+                    
+                    for key in review_keys:
+                        if key in empresa and isinstance(empresa[key], list) and len(empresa[key]) > 0:
+                            reviews = empresa[key]
+                            print(f"  - Reviews encontradas em '{key}': {len(reviews)}")
+                            break
+                    
+                    # Se ainda não encontrou, procurar em todas as chaves
+                    if not reviews:
+                        print("  - DEBUG: Procurando por reviews em todas as chaves...")
+                        for key in empresa.keys():
+                            if isinstance(empresa[key], list) and len(empresa[key]) > 0:
+                                # Verifica se é uma lista de objetos com texto de review
+                                first_item = empresa[key][0] if len(empresa[key]) > 0 else None
+                                if isinstance(first_item, dict):
+                                    item_keys = list(first_item.keys())
+                                    if any(k in str(item_keys).lower() for k in ['author', 'text', 'rating', 'review']):
+                                        reviews = empresa[key]
+                                        print(f"    - Lista encontrada em '{key}': {len(empresa[key])} itens")
+                                        break
                     
                     if not reviews:
                         print("  - ⚠️ Nenhuma avaliação textual encontrada no item retornado.")
-                        print(f"  - DEBUG: Procurando por reviews em todas as chaves...")
-                        for key in empresa.keys():
-                            if 'review' in key.lower() and isinstance(empresa[key], list):
-                                print(f"    - Lista encontrada em '{key}': {len(empresa[key])} itens")
                         texto_completo_maps += "Nenhuma avaliação textual encontrada no Maps.\n"
                     else:
                         print(f"  - Encontradas {len(reviews)} avaliações no item retornado.")
                         for rev in reviews[:20]: # Limita a 20 reviews
-                            autor = rev.get('author', rev.get('reviewerName', rev.get('userName', 'Anônimo')))
-                            texto_rev = rev.get('text', rev.get('reviewText', rev.get('comment', 'Sem texto')))
-                            data_rev = rev.get('publishedAt', rev.get('reviewDate', rev.get('published_at', '')))
+                            autor = rev.get('author', rev.get('reviewerName', rev.get('userName', rev.get('owner_name', 'Anônimo'))))
+                            texto_rev = rev.get('text', rev.get('reviewText', rev.get('comment', rev.get('snippet', 'Sem texto')))))
+                            data_rev = rev.get('publishedAt', rev.get('reviewDate', rev.get('published_at', rev.get('time', '')))))
                             rating = rev.get('rating', rev.get('stars', ''))
                             texto_completo_maps += f"- [{autor}] ({data_rev}) - {rating}⭐: {texto_rev}\n"
 
