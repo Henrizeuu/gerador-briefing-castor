@@ -1,141 +1,183 @@
 import os
-import urllib.parse
+import json
 import requests
+import urllib.parse
 from apify_client import ApifyClient
 
-def rodar_extracao(url_insta_tratada, url_maps_tratada):
-    """
-    Executa a extração de dados do Instagram e Google Maps via Apify.
-    Cria as pastas estruturadas e faz o download de bio, reviews e imagens.
-    """
-    CHAVE_API_APIFY = os.environ.get("APIFY_TOKEN")
-    if not CHAVE_API_APIFY:
-        return "Erro: Token da Apify (APIFY_TOKEN) não configurado."
-        
-    client = ApifyClient(CHAVE_API_APIFY)
-    
-    # 1. Estruturação de Pastas
-    # Extrai o username limpo da URL do Instagram para nomear a pasta do cliente
-    username_insta = url_insta_tratada.strip('/').split('/')[-1]
-    pasta_base_cliente = f"cliente_{username_insta}"
-    
-    pasta_instagram = f"{pasta_base_cliente}/instagram_downloads_apify"
-    pasta_google = f"{pasta_base_cliente}/google_reviews_extraidas"
-    
-    os.makedirs(pasta_instagram, exist_ok=True)
-    os.makedirs(pasta_google, exist_ok=True)
-
-    # ==========================================
-    # 2. SCRAPER DO INSTAGRAM (Bio e Posts)
-    # Ator: apify/instagram-scraper (shu8hvrXbJbY3Eb9W)
-    # ==========================================
+def baixar_imagem(url, caminho_salvar):
+    """Função auxiliar para baixar imagens do Instagram/Maps de forma segura."""
     try:
-        # --- ETAPA A: Resgatar Detalhes do Perfil (Bio) ---
-        run_input_bio = {
+        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
+        response = requests.get(url, headers=headers, timeout=20)
+        if response.status_code == 200:
+            with open(caminho_salvar, 'wb') as f:
+                f.write(response.content)
+            return True
+    except Exception as e:
+        print(f"Erro ao baixar imagem {url}: {e}")
+    return False
+
+def rodar_extracao(url_insta, url_maps):
+    """
+    Função principal que orquestra o scraping via Apify e salva os dados 
+    no formato exato que o analise_gemini.py e gerador_site.py esperam.
+    """
+    APIFY_TOKEN = os.environ.get("APIFY_API_TOKEN")
+    if not APIFY_TOKEN:
+        return "Erro: Variável de ambiente APIFY_API_TOKEN não configurada."
+
+    client = ApifyClient(APIFY_TOKEN)
+
+    # 1. Preparar Estrutura de Pastas
+    # Extrai o username da URL para criar uma pasta única para o cliente
+    username = url_insta.split('/')[-2] if '/' in url_insta else url_insta.replace('@', '')
+    pasta_base = f"./dados_clientes/{username}"
+    pasta_insta = f"{pasta_base}/instagram_downloads_apify"
+    pasta_maps = f"{pasta_base}/google_reviews_extraidas"
+    
+    os.makedirs(pasta_insta, exist_ok=True)
+    os.makedirs(pasta_maps, exist_ok=True)
+
+    # ==========================================
+    # 2. EXTRAÇÃO DO INSTAGRAM (Via Apify)
+    # ==========================================
+    print("🦫 Iniciando extração do Instagram...")
+    texto_completo_insta = "=== DADOS ESTRUTURAIS DO PERFIL ===\n"
+    
+    # O Apify Instagram Scraper não permite misturar 'details' e 'posts' na mesma run.
+    # Precisamos rodar duas vezes.
+    
+    # RUN A: Buscar Detalhes do Perfil (Bio, Foto, Seguidores)
+    try:
+        run_input_details = {
             "resultsType": "details",
-            "directUrls": [url_insta_tratada]
+            "directUrls": [url_insta]
         }
+        run_details = client.actor("shu8hvrXbJbY3Eb9W").call(run_input=run_input_details)
         
-        run_bio = client.actor("shu8hvrXbJbY3Eb9W").call(run_input=run_input_bio)
-        
-        dataset_id = run_bio.default_dataset_id
-        for item in client.dataset(dataset_id).iterate_items():
-            # Salvar Bio e informações textuais
-            caminho_bio = os.path.join(pasta_instagram, "bio_perfil.txt")
-            with open(caminho_bio, 'w', encoding='utf-8') as f:
-                f.write(f"Nome Completo: {item.get('fullName', '')}\n")
-                f.write(f"Username: {item.get('username', '')}\n")
-                f.write(f"Bio: {item.get('biography', '')}\n")
-                f.write(f"Seguidores: {item.get('followersCount', '')}\n")
-                f.write(f"Link na Bio: {item.get('externalUrl', '')}\n")
-
-            # Baixar Foto de Perfil
-            foto_perfil_url = item.get("profilePicUrlHD") or item.get("profilePicUrl")
-            if foto_perfil_url:
-                try:
-                    r = requests.get(foto_perfil_url, timeout=10)
-                    with open(os.path.join(pasta_instagram, "foto_perfil.jpg"), 'wb') as f:
-                        f.write(r.content)
-                except Exception as e:
-                    print(f"Aviso: Não foi possível baixar a foto de perfil: {e}")
+        for item in client.dataset(run_details["defaultDatasetId"]).iterate_items():
+            texto_completo_insta += f"Nome: {item.get('fullName', 'N/A')}\n"
+            texto_completo_insta += f"Username: {item.get('username', 'N/A')}\n"
+            texto_completo_insta += f"Bio: {item.get('biography', 'N/A')}\n"
+            texto_completo_insta += f"Seguidores: {item.get('followersCount', 0)}\n"
+            texto_completo_insta += f"Seguindo: {item.get('followsCount', 0)}\n"
+            texto_completo_insta += f"Total de Posts: {item.get('postsCount', 0)}\n"
+            texto_completo_insta += f"Link na Bio: {item.get('externalUrl', 'N/A')}\n\n"
             
-            # Encerra no primeiro resultado (o perfil alvo)
+            # Baixar Foto de Perfil (Obrigatório para o Gemini)
+            pic_url = item.get('profilePicUrlHD') or item.get('profilePicUrl')
+            if pic_url:
+                baixar_imagem(pic_url, f"{pasta_insta}/foto_perfil.jpg")
             break
+    except Exception as e:
+        print(f"Erro ao buscar detalhes do Insta: {e}")
 
-        # --- ETAPA B: Resgatar os Posts para a Galeria ---
+    # RUN B: Buscar Posts e Imagens (Limitado a 21 para o Gemini não estourar o contexto)
+    try:
         run_input_posts = {
             "resultsType": "posts",
-            "directUrls": [url_insta_tratada],
-            "resultsLimit": 20
+            "directUrls": [url_insta],
+            "resultsLimit": 21 
         }
-        
         run_posts = client.actor("shu8hvrXbJbY3Eb9W").call(run_input=run_input_posts)
         
-        contador_fotos = 1
-        for post in client.dataset(run_posts["defaultDatasetId"]).iterate_items():
-            if contador_fotos > 20: # Trava de segurança extra
-                break
+        texto_completo_insta += "=== LEGENDAS DOS POSTS RECENTES ===\n"
+        img_count = 0
+        
+        for item in client.dataset(run_posts["defaultDatasetId"]).iterate_items():
+            if img_count >= 21: break
             
-            # O novo scraper pode colocar a imagem principal em diferentes chaves dependendo do tipo de post
-            img_url = post.get("displayUrl")
-            if not img_url and post.get("images"):
-                img_url = post["images"][0]
-            if not img_url and post.get("carouselImages"):
-                img_url = post["carouselImages"][0]
+            caption = item.get('caption', 'Sem legenda').replace('\n', ' ')
+            texto_completo_insta += f"- Post {img_count+1}: {caption[:300]}...\n"
+
+            # Extrair URLs das imagens (pode ser post único ou carrossel)
+            img_urls = []
+            if item.get('type') == 'Sidecar' and item.get('carouselImages'):
+                img_urls = item['carouselImages']
+            elif item.get('images'):
+                img_urls = item['images']
+
+            # Baixar a primeira imagem de cada post até atingir o limite de 21
+            for img_url in img_urls:
+                if img_count >= 21: break
+                clean_url = img_url.split('?')[0]
+                ext = os.path.splitext(clean_url)[1] or '.jpg'
+                filename = f"post_{img_count+1}{ext}"
                 
-            if img_url:
-                try:
-                    r = requests.get(img_url, timeout=10)
-                    with open(os.path.join(pasta_instagram, f"foto{contador_fotos}.jpg"), 'wb') as f:
-                        f.write(r.content)
-                    contador_fotos += 1
-                except Exception:
-                    continue
+                if baixar_imagem(img_url, f"{pasta_insta}/{filename}"):
+                    img_count += 1
                     
     except Exception as e:
-        return f"Erro na extração do Instagram: {str(e)}"
+        print(f"Erro ao buscar posts do Insta: {e}")
+
+    # Salvar o TXT consolidado do Instagram
+    with open(f"{pasta_insta}/01_dados_insta.txt", 'w', encoding='utf-8') as f:
+        f.write(texto_completo_insta)
+
 
     # ==========================================
-    # 3. SCRAPER DO GOOGLE MAPS (Reviews e Contatos)
-    # Ator: vortex_data/google-maps
+    # 3. EXTRAÇÃO DO GOOGLE MAPS (Via Apify)
     # ==========================================
-    if url_maps_tratada:
-        try:
-            if url_maps_tratada.startswith("http"):
-                run_input_maps = {
-                    "startUrls": [{"url": url_maps_tratada}],
-                    "maxReviewsPerPlace": 20 
-                }
-            else:
-                termo_codificado = urllib.parse.quote(url_maps_tratada)
-                url_busca_maps = f"https://www.google.com/maps/search/?api=1&query={termo_codificado}"
-                run_input_maps = {
-                    "startUrls": [{"url": url_busca_maps}],
-                    "maxReviewsPerPlace": 20
-                }
+    print("🗺 Iniciando extração do Google Maps...")
+    texto_completo_maps = ""
+    
+    # Descobrir se o usuário mandou URL ou Texto de Busca
+    run_input_maps = {}
+    if url_maps.startswith("http"):
+        run_input_maps = {
+            "startUrls": [{"url": url_maps}],
+            "maxReviewsPerPlace": 50
+        }
+    else:
+        # Tenta separar "Nome da Empresa, Cidade"
+        partes = url_maps.split(',')
+        search_term = partes[0].strip()
+        location = partes[1].strip() if len(partes) > 1 else ""
+        
+        run_input_maps = {
+            "searchStringsArray": [search_term],
+            "locationQueries": [location] if location else [],
+            "maxCrawledPlacesPerSearch": 1, # Queremos apenas o lugar mais relevante
+            "maxReviewsPerPlace": 50
+        }
 
-            run_maps = client.actor("AabCualFIriz3X6Fs").call(run_input=run_input_maps)
+    try:
+        run_maps = client.actor("AabCualFIriz3X6Fs").call(run_input=run_input_maps)
+        
+        for item in client.dataset(run_maps["defaultDatasetId"]).iterate_items():
+            # Ignorar linhas de diagnóstico do Apify
+            if item.get("isDiagnostic") or item.get("recordType") == "run-diagnostic":
+                continue
+
+            texto_completo_maps += "=== DADOS DO NEGÓCIO (MAPS) ===\n"
+            texto_completo_maps += f"Nome: {item.get('title', 'N/A')}\n"
+            texto_completo_maps += f"Categoria: {item.get('categoryName', 'N/A')}\n"
+            texto_completo_maps += f"Endereço: {item.get('address', 'N/A')}\n"
+            texto_completo_maps += f"Telefone: {item.get('phone', 'N/A')}\n"
+            texto_completo_maps += f"Website: {item.get('website', 'N/A')}\n"
+            texto_completo_maps += f"Avaliação Geral: {item.get('totalScore', 0)} estrelas ({item.get('reviewsCount', 0)} avaliações)\n\n"
+
+            texto_completo_maps += "=== AVALIAÇÕES DE CLIENTES (PROVA SOCIAL) ===\n"
+            reviews = item.get('reviews', [])
+            if not reviews:
+                texto_completo_maps += "Nenhuma avaliação textual encontrada no Maps.\n"
             
-            for item in client.dataset(run_maps["defaultDatasetId"]).iterate_items():
-                caminho_maps = os.path.join(pasta_google, "dados_e_reviews.txt")
-                with open(caminho_maps, 'w', encoding='utf-8') as f:
-                    f.write(f"Título: {item.get('title', '')}\n")
-                    f.write(f"Categoria: {item.get('categoryName', '')}\n")
-                    f.write(f"Endereço: {item.get('address', '')}\n")
-                    f.write(f"Telefone: {item.get('phone', '')}\n")
-                    f.write(f"Website: {item.get('website', '')}\n")
-                    f.write(f"Nota Total (Score): {item.get('totalScore', '')}\n")
-                    f.write(f"Total de Avaliações: {item.get('reviewsCount', '')}\n")
-                    
-                    reviews = item.get("reviews", [])
-                    f.write("\n=== AVALIAÇÕES (PROVA SOCIAL) ===\n")
-                    for rev in reviews:
-                        texto_review = rev.get('text', '')
-                        if texto_review: 
-                            f.write(f"\"{texto_review}\" - {rev.get('author', '')}\n")
-                break
-                
-        except Exception as e:
-            return f"Erro na extração do Google Maps: {str(e)}"
+            for rev in reviews:
+                autor = rev.get('author', 'Anônimo')
+                texto_rev = rev.get('text', 'Sem texto')
+                data_rev = rev.get('publishedAt', '')
+                texto_completo_maps += f"- [{autor}] ({data_rev}): {texto_rev}\n"
+            
+            # Como limitamos para 1 lugar, podemos dar break aqui
+            break 
+            
+    except Exception as e:
+        print(f"Erro ao buscar dados do Maps: {e}")
+        texto_completo_maps = "Erro ao extrair dados do Google Maps."
 
-    return pasta_base_cliente
+    # Salvar o TXT do Maps
+    with open(f"{pasta_maps}/01_dados_maps.txt", 'w', encoding='utf-8') as f:
+        f.write(texto_completo_maps)
+
+    print("✅ Extração concluída com sucesso!")
+    return pasta_base
