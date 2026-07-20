@@ -19,85 +19,83 @@ def rodar_extracao(url_insta, url_maps):
     client = ApifyClient(CHAVE_APIFY)
 
     # ---------------------------------------------------------
-    # 1. EXTRAÇÃO DO INSTAGRAM (USANDO O OFICIAL BLINDADO)
+    # 1. EXTRAÇÃO DO INSTAGRAM (USANDO O OFICIAL BLINDADO - 1 REQUISIÇÃO)
     # ---------------------------------------------------------
     try:
         print(f"🦫 Iniciando extração do Instagram (Scraper Oficial) para: {url_insta}")
 
-        # --- REQUISIÇÃO ÚNICA: EXTRAIR PERFIL E POSTS JUNTOS ---
-        run_input_insta = {
+        # --- FAZ APENAS 1 CHAMADA PARA ECONOMIZAR CRÉDITOS ---
+        run_input_perfil = {
+            "resultsType": "details",
             "directUrls": [url_insta],
-            "resultsLimit": 12, # Limite de posts que virão junto com os dados do perfil
         }
         
-        run_insta = client.actor("apify/instagram-scraper").call(run_input=run_input_insta)
+        run_perfil = client.actor("apify/instagram-scraper").call(run_input=run_input_perfil)
         
         nome_completo, bio, seguidores, categoria, foto_perfil_url = "", "", 0, "N/A", ""
-        posts = []
 
-        for info in client.dataset(run_insta.default_dataset_id).iterate_items():
+        for info in client.dataset(run_perfil.default_dataset_id).iterate_items():
+            
+            # --- SALVA OS DADOS DO PERFIL ---
             nome_completo = info.get('fullName', 'N/A')
             bio = info.get('biography', 'N/A')
             seguidores = info.get('followersCount', 0)
             categoria = info.get('businessCategoryName', 'N/A')
             foto_perfil_url = info.get('profilePicUrlHD') or info.get('profilePicUrl')
-            
-            # O scraper já traz os posts embutidos na resposta do perfil
-            if 'latestPosts' in info:
-                posts.extend(info['latestPosts'])
-            break # Só precisamos do primeiro item (o perfil)
 
-        # SALVA DADOS DO PERFIL
-        with open(os.path.join(pasta_insta, "dados_perfil.txt"), "w", encoding="utf-8") as f:
-            f.write(f"Nome: {nome_completo}\nBio: {bio}\nSeguidores: {seguidores}\nCategoria: {categoria}\n")
+            with open(os.path.join(pasta_insta, "dados_perfil.txt"), "w", encoding="utf-8") as f:
+                f.write(f"Nome: {nome_completo}\nBio: {bio}\nSeguidores: {seguidores}\nCategoria: {categoria}\n")
 
-        if foto_perfil_url:
-            try:
-                # Usando headers para evitar bloqueio 403 Forbidden no download da imagem
-                req = urllib.request.Request(foto_perfil_url, headers={'User-Agent': 'Mozilla/5.0'})
-                with urllib.request.urlopen(req) as response, open(os.path.join(pasta_insta, "foto_perfil.jpg"), 'wb') as out_file:
-                    out_file.write(response.read())
-            except Exception as e:
-                print(f"Aviso ao baixar foto de perfil: {e}")
-
-        # --- PROCESSA OS POSTS EXTRAÍDOS ---
-        for post in posts[:12]: # Garantindo o limite de 12
-            shortcode = post.get('shortCode')
-            if not shortcode: continue
-
-            pasta_post = os.path.join(pasta_insta, shortcode)
-            os.makedirs(pasta_post, exist_ok=True)
-
-            legenda = post.get('caption', '')
-            if legenda:
-                with open(os.path.join(pasta_post, "descricao.txt"), "w", encoding="utf-8") as f:
-                    f.write(legenda)
-
-            # Lógica de filtragem de imagens do seu script original mantida exatamente igual
-            links_para_baixar = []
-            if 'childPosts' in post and post['childPosts']:
-                for child in post['childPosts']:
-                    if 'videoUrl' not in child or not child['videoUrl']:
-                        if 'displayUrl' in child and child['displayUrl']:
-                            links_para_baixar.append(child['displayUrl'])
-            elif 'videoUrl' not in post or not post['videoUrl']:
-                if 'displayUrl' in post:
-                    links_para_baixar.append(post['displayUrl'])
-
-            if links_para_baixar:
+            if foto_perfil_url:
                 try:
-                    # Baixa apenas a primeira imagem do post
-                    req = urllib.request.Request(links_para_baixar[0], headers={'User-Agent': 'Mozilla/5.0'})
-                    with urllib.request.urlopen(req) as response, open(os.path.join(pasta_post, "imagem.jpg"), 'wb') as out_file:
+                    req = urllib.request.Request(foto_perfil_url, headers={'User-Agent': 'Mozilla/5.0'})
+                    with urllib.request.urlopen(req) as response, open(os.path.join(pasta_insta, "foto_perfil.jpg"), 'wb') as out_file:
                         out_file.write(response.read())
                 except Exception as e:
-                    pass
+                    print(f"Aviso ao baixar foto de perfil: {e}")
+
+            # --- EXTRAI OS POSTS DA MESMA REQUISIÇÃO (latestPosts) ---
+            ultimos_posts = info.get('latestPosts', [])
+            
+            for post in ultimos_posts:
+                shortcode = post.get('shortCode')
+                if not shortcode: continue
+
+                pasta_post = os.path.join(pasta_insta, shortcode)
+                os.makedirs(pasta_post, exist_ok=True)
+
+                legenda = post.get('caption', '')
+                if legenda:
+                    with open(os.path.join(pasta_post, "descricao.txt"), "w", encoding="utf-8") as f:
+                        f.write(legenda)
+
+                # Lógica de filtragem de imagens do seu script original
+                links_para_baixar = []
+                if 'childPosts' in post and post['childPosts']:
+                    for child in post['childPosts']:
+                        if 'videoUrl' not in child or not child['videoUrl']:
+                            if 'displayUrl' in child and child['displayUrl']:
+                                links_para_baixar.append(child['displayUrl'])
+                elif 'videoUrl' not in post or not post['videoUrl']:
+                    if 'displayUrl' in post:
+                        links_para_baixar.append(post['displayUrl'])
+
+                if links_para_baixar:
+                    try:
+                        # Baixa apenas a primeira imagem do post
+                        req = urllib.request.Request(links_para_baixar[0], headers={'User-Agent': 'Mozilla/5.0'})
+                        with urllib.request.urlopen(req) as response, open(os.path.join(pasta_post, "imagem.jpg"), 'wb') as out_file:
+                            out_file.write(response.read())
+                    except Exception as e:
+                        pass
+            
+            break # Garante que lê só a linha principal e finaliza
 
     except Exception as e:
         print(f"Aviso na extração do Instagram via Apify Oficial: {e}")
 
     # ---------------------------------------------------------
-    # 2. EXTRAÇÃO DO GOOGLE MAPS (NOVO SCRAPER OTIMIZADO)
+    # 2. EXTRAÇÃO DO GOOGLE MAPS (EXATAMENTE COMO VOCÊ MANDOU)
     # ---------------------------------------------------------
     if url_maps:
         try:
