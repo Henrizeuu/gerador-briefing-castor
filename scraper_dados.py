@@ -140,37 +140,52 @@ def rodar_extracao(url_insta, url_maps):
     print(f"  - Valor bruto de url_maps: '{url_maps}'")
     texto_completo_maps = ""
 
-    # VALIDAÇÃO CRÍTICA: Verifica se a URL do Maps é válida
+    # VALIDAÇÃO CRÍTICA: Verifica se a URL do Maps é válida ou se é um termo de busca
     if not url_maps or url_maps.strip() == "":
         print("  - ⚠️ URL do Maps vazia ou nula. Pulando extração.")
         texto_completo_maps = "Nenhuma informação do Google Maps fornecida."
-    elif not url_maps.startswith(('http://', 'https://')):
-        print(f"  - ⚠️ URL do Maps inválida (não começa com http/https): '{url_maps}'. Pulando extração.")
-        texto_completo_maps = "URL do Google Maps inválida. Deve começar com 'http://' ou 'https://'."
     else:
-        print(f"  - ✅ URL do Maps parece válida: '{url_maps}'. Preparando input para o Actor.")
+        url_maps = url_maps.strip()
+        print(f"  - ✅ Processando entrada: '{url_maps}'")
         
-        # Extrair o nome do negócio da URL se possível
+        # Determinar se é uma URL ou um termo de busca
+        eh_url = url_maps.startswith(('http://', 'https://'))
+        
+        # Extrair o nome do negócio para usar como fallback
         business_name = url_maps
-        if "maps.app.goo.gl" in url_maps or "google.com/maps" in url_maps:
+        if eh_url:
+            print(f"  - 📍 Detectado: URL completa do Google Maps")
             # Tentar extrair o nome do negócio da URL
             try:
-                from urllib.parse import urlparse, parse_qs
+                from urllib.parse import urlparse, parse_qs, unquote
                 parsed = urlparse(url_maps)
-                if "!4d" in url_maps and "!3d" in url_maps:
-                    # URL curta do Google Maps
-                    business_name = url_maps.split('/')[-1] if '/' in url_maps else url_maps
-                elif "q=" in url_maps or "query=" in url_maps:
+                
+                # URL curta do Google Maps (maps.app.goo.gl)
+                if "maps.app.goo.gl" in url_maps:
+                    # Para URLs curtas, usamos a própria URL que o actor resolve
+                    pass
+                # URL completa com parâmetros
+                elif "google.com/maps" in url_maps:
+                    # Tentar extrair do parâmetro q (query) ou destination
                     query_params = parse_qs(parsed.query)
                     if 'q' in query_params:
-                        business_name = query_params['q'][0]
-                    elif 'query' in query_params:
-                        business_name = query_params['query'][0]
+                        business_name = unquote(query_params['q'][0])
+                    elif 'destination' in query_params:
+                        business_name = unquote(query_params['destination'][0])
+                    # Ou extrair do path (/place/)
+                    elif '/place/' in url_maps:
+                        parts = url_maps.split('/place/')
+                        if len(parts) > 1:
+                            business_name = parts[1].split('/')[0].replace('+', ' ')
             except Exception as e:
                 print(f"  - ⚠️ Não foi possível extrair nome da URL: {e}")
+        else:
+            print(f"  - 🔍 Detectado: Termo de busca (nome do negócio)")
+            business_name = url_maps
         
+        # Preparar input para o Actor
+        # O compass/crawler-google-places aceita searchQueries para buscar por nome
         run_input_maps = {
-            "startUrls": [{"url": url_maps}],
             "languageCode": "pt-BR",
             "maxCrawledPlaces": 1,
             "reviewsSort": "mostRelevant",
@@ -179,6 +194,24 @@ def rodar_extracao(url_insta, url_maps):
             "includePhotos": False,
             "includeOwnerResponse": True,
         }
+        
+        # Se for URL, usa startUrls; se for nome, usa searchQueries
+        if eh_url:
+            run_input_maps["startUrls"] = [{"url": url_maps}]
+            print(f"  - Usando URL direta: {url_maps}")
+        else:
+            # Para busca por nome, adicionamos a localização se possível
+            # O actor aceita searchQueries no formato "nome, cidade"
+            run_input_maps["searchQueries"] = [url_maps]
+            print(f"  - Usando termo de busca: {url_maps}")
+        
+        # Adicionar localização se estiver no termo de busca (ex: "advogados, canoas rs")
+        if "," in url_maps and not eh_url:
+            # Já está no formato "nome, localizacao"
+            pass
+        elif not eh_url:
+            # Se só tem o nome sem localização, o actor vai buscar globalmente
+            print(f"  - ⚠️ Dica: Para resultados mais precisos, use 'nome, cidade' (ex: 'bayar advogados, canoas rs')")
 
         print(f"  - Input enviado ao Actor: {json.dumps(run_input_maps, indent=2)[:500]}...")
         print("  - Executando Actor do Google Maps (compass/crawler-google-places)...")
@@ -202,7 +235,7 @@ def rodar_extracao(url_insta, url_maps):
 
                 if not dados:
                     print("  - ⚠️ Nenhum item de dados (empresa) retornado pelo Actor do Maps.")
-                    texto_completo_maps = "Nenhum dado foi extraído do Google Maps. A página pode estar protegida ou o termo de busca pode não retornar resultados."
+                    texto_completo_maps = f"Nenhum dado foi extraído do Google Maps para '{business_name}'. Verifique se o nome está correto ou tente usar a URL completa do Google Maps."
                 else:
                     print("  - Processando primeiro item (empresa)...")
                     empresa = dados[0] # Assume que o primeiro item é a empresa alvo
@@ -241,9 +274,10 @@ def rodar_extracao(url_insta, url_maps):
             # Dica de solução
             print("\n  💡 DICAS PARA RESOLVER:")
             print("     1. Verifique se o token APIFY_API_TOKEN está correto")
-            print("     2. Confirme se a URL do Maps está acessível no navegador")
-            print("     3. Tente usar uma URL completa do Google Maps")
-            print("     4. O Actor pode estar indisponível temporariamente")
+            print("     2. Confirme se o termo de busca existe no Google Maps")
+            print("     3. Tente usar o formato 'nome do negócio, cidade, estado'")
+            print("     4. Ou copie e cole a URL completa do Google Maps")
+            print("     5. O Actor pode estar indisponível temporariamente")
 
 
     # Salva o txt do Maps
