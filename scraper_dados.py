@@ -38,7 +38,8 @@ def rodar_extracao(url_insta_tratada, url_maps_tratada):
         
         run_bio = client.actor("shu8hvrXbJbY3Eb9W").call(run_input=run_input_bio)
         
-        for item in client.dataset(run_bio["defaultDatasetId"]).iterate_items():
+        dataset_id = run_bio.default_dataset_id
+        for item in client.dataset(dataset_id).iterate_items():
             # Salvar Bio e informações textuais
             caminho_bio = os.path.join(pasta_instagram, "bio_perfil.txt")
             with open(caminho_bio, 'w', encoding='utf-8') as f:
