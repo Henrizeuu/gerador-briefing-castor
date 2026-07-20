@@ -1,62 +1,99 @@
 import os
-import time
-from github import Github
-from github import Auth
+import glob
+import json
+from google import genai
+from google.genai import types
 
-def subir_para_github(codigo_html, lista_imagens, nome_cliente_repo, dominio_customizado):
-    TOKEN_GITHUB = os.environ.get("GITHUB_TOKEN")
-    if not TOKEN_GITHUB:
-        return "Erro: Token do GitHub não configurado."
+def criar_html_institucional(briefing_json_texto, pasta_base_cliente):
+    """
+    Recebe o JSON do briefing e a pasta do cliente, e usa o Gemini para 
+    escrever o código HTML completo do site institucional.
+    """
+    CHAVE_API_GEMINI = os.environ.get("GEMINI_TOKEN")
+    if not CHAVE_API_GEMINI:
+        return None, "Erro: Token do Gemini não configurado."
+        
+    client = genai.Client(api_key=CHAVE_API_GEMINI)
+    
+    # 1. Parsear o JSON do briefing (com fallback de segurança)
+    try:
+        dados = json.loads(briefing_json_texto)
+    except json.JSONDecodeError:
+        # Se o Gemini alucinar e não devolver JSON puro, usamos dados padrão para não quebrar o site
+        dados = {
+            "nome_nicho": "Empresa Cliente",
+            "grande_problema": "Soluções especializadas para você.",
+            "solucao_servicos": "Nossos serviços",
+            "diferencial": "Qualidade e confiança",
+            "autoridade_sobre": "Sobre nossa empresa",
+            "faq": "Perguntas frequentes",
+            "identidade_visual_cores": "#2563EB",
+            "provas_sociais": "Clientes satisfeitos",
+            "contato_endereco": "Entre em contato",
+            "iframe_mapa": ""
+        }
 
-    auth = Auth.Token(TOKEN_GITHUB)
-    g = Github(auth=auth)
+    # 2. Mapear Imagens (CORREÇÃO CRÍTICA: Busca na raiz da pasta, não em subpastas)
+    pasta_instagram = f"{pasta_base_cliente}/instagram_downloads_apify"
+    caminhos_imagens = glob.glob(f"{pasta_instagram}/*.jpg")
+    caminhos_imagens.sort()
+    
+    # Limita a 10 imagens para o site não ficar pesado no GitHub Pages
+    caminhos_imagens = caminhos_imagens[:10]
+
+    # 3. Prompt Mestre para o Gemini (Gerador de Código)
+    prompt_mestre = f"""
+    Atue como um Desenvolvedor Front-end Sênior e Copywriter Especialista em Alta Conversão.
+    Crie um site institucional completo, moderno e responsivo em um único arquivo HTML.
+    Use Tailwind CSS via CDN para estilização (rápido, bonito e sem arquivos externos).
+    
+    DADOS DO CLIENTE (JSON):
+    {json.dumps(dados, ensure_ascii=False, indent=2)}
+    
+    INSTRUÇÕES DE IMAGENS:
+    Você tem acesso a {len(caminhos_imagens)} imagens locais que serão hospedadas na pasta 'assets/'.
+    No código HTML, referencie-as EXATAMENTE como: 'assets/imagem_1.jpg', 'assets/imagem_2.jpg', 'assets/imagem_3.jpg', etc.
+    - Use 'assets/imagem_1.jpg' como a imagem principal (Hero Section ou Sobre).
+    - Use as demais em uma seção de Galeria ou Serviços.
+    
+    ESTRUTURA OBRIGATÓRIA DO SITE:
+    1. Header (Logo/Nome e Menu de navegação suave).
+    2. Hero Section (Título forte baseado no "Grande Problema", subtítulo com a "Solução", e botão CTA).
+    3. Seção Sobre (Baseada em "Autoridade").
+    4. Seção Serviços/Soluções (Baseada em "A Solução").
+    5. Seção Diferenciais (Por que escolher).
+    6. Seção Depoimentos (Baseada em "Provas Sociais").
+    7. Seção FAQ.
+    8. Seção de Contato e Localização (Incluir o iframe do mapa fornecido no JSON e os dados de contato).
+    9. Footer simples.
+    
+    IDENTIDADE VISUAL:
+    Use as cores sugeridas em "identidade_visual_cores". Se não houver HEX, use uma paleta profissional e moderna que combine com o nicho.
+    
+    FORMATO DE SAÍDA:
+    Retorne APENAS o código HTML cru. Não use ```html ... ``` markdown. Apenas o código puro começando com <!DOCTYPE html>.
+    """
+
+    configuracao = types.GenerateContentConfig(
+        temperature=0.7,
+        response_mime_type="text/plain" # Queremos texto puro (HTML)
+    )
 
     try:
-        usuario = g.get_user()
+        resposta = client.models.generate_content(
+            model='gemini-2.5-flash',
+            contents=[prompt_mestre],
+            config=configuracao
+        )
+        html_gerado = resposta.text
         
-        # 1. Cria ou pega o repositório existente
-        try:
-            repo = usuario.create_repo(nome_cliente_repo, description=f"Site Institucional - {nome_cliente_repo}")
-        except Exception:
-            repo = usuario.get_repo(nome_cliente_repo)
-        
-        def salvar_arquivo_no_github(caminho_repo, mensagem, conteudo):
-            try:
-                arquivo_existente = repo.get_contents(caminho_repo, ref="main")
-                repo.update_file(arquivo_existente.path, mensagem, conteudo, arquivo_existente.sha, branch="main")
-            except Exception:
-                repo.create_file(caminho_repo, mensagem, conteudo, branch="main")
-
-        # 2. Faz o commit do HTML e Imagens
-        salvar_arquivo_no_github("index.html", "Atualizando Index HTML", codigo_html)
-        
-        for i, caminho_local in enumerate(lista_imagens):
-            caminho_no_github = f"assets/imagem_{i+1}.jpg"
-            with open(caminho_local, 'rb') as f:
-                conteudo_imagem = f.read()
-            salvar_arquivo_no_github(caminho_no_github, f"Adicionando {caminho_no_github}", conteudo_imagem)
-
-        # 3. Faz o commit do CNAME
-        if dominio_customizado:
-            salvar_arquivo_no_github("CNAME", "Configurando domínio", dominio_customizado)
+        # Limpeza de segurança caso o Gemini insira markdown mesmo pedindo para não
+        if html_gerado.startswith("```html"):
+            html_gerado = html_gerado[7:-3]
+        if html_gerado.startswith("```"):
+            html_gerado = html_gerado[3:-3]
             
-        # --- O PULO DO GATO: Ativação Automática do GitHub Pages ---
-        
-        # Pausa de 2 segundos para dar tempo do GitHub registrar os commits acima
-        time.sleep(2) 
-        
-        if dominio_customizado:
-            try:
-                # Comando direto na API para LIGAR o GitHub Pages na branch 'main'
-                repo.create_pages_site(source={"branch": "main", "path": "/"})
-            except Exception:
-                # Se der erro, geralmente é porque já estava ativado. Tentamos forçar a atualização do domínio.
-                try:
-                    repo.update_pages_site(cname=dominio_customizado)
-                except:
-                    pass
-            
-        return f"Sucesso! Site subiu, o Pages foi ativado e o cadeado SSL está sendo gerado: http://{dominio_customizado}"
+        return html_gerado.strip(), caminhos_imagens
         
     except Exception as e:
-        return f"Erro ao subir pro GitHub: {str(e)}"
+        return None, f"Erro na API do Gemini ao gerar o site: {str(e)}"
