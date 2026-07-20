@@ -223,9 +223,10 @@ def rodar_extracao(url_insta, url_maps):
         print("  - Executando Actor do Google Maps (compass/crawler-google-places)...")
         try:
             # Executar o actor com timeout adequado
+            # Nota: O parâmetro timeout_secs não é suportado pelo método call() diretamente
+            # O timeout é gerenciado pela plataforma Apify
             run_maps = client.actor("compass/crawler-google-places").call(
-                run_input=run_input_maps,
-                timeout_secs=300  # 5 minutos de timeout
+                run_input=run_input_maps
             )
             
             # Verificar status da execução
