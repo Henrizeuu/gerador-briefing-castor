@@ -149,68 +149,101 @@ def rodar_extracao(url_insta, url_maps):
         texto_completo_maps = "URL do Google Maps inválida. Deve começar com 'http://' ou 'https://'."
     else:
         print(f"  - ✅ URL do Maps parece válida: '{url_maps}'. Preparando input para o Actor.")
+        
+        # Extrair o nome do negócio da URL se possível
+        business_name = url_maps
+        if "maps.app.goo.gl" in url_maps or "google.com/maps" in url_maps:
+            # Tentar extrair o nome do negócio da URL
+            try:
+                from urllib.parse import urlparse, parse_qs
+                parsed = urlparse(url_maps)
+                if "!4d" in url_maps and "!3d" in url_maps:
+                    # URL curta do Google Maps
+                    business_name = url_maps.split('/')[-1] if '/' in url_maps else url_maps
+                elif "q=" in url_maps or "query=" in url_maps:
+                    query_params = parse_qs(parsed.query)
+                    if 'q' in query_params:
+                        business_name = query_params['q'][0]
+                    elif 'query' in query_params:
+                        business_name = query_params['query'][0]
+            except Exception as e:
+                print(f"  - ⚠️ Não foi possível extrair nome da URL: {e}")
+        
         run_input_maps = {
             "startUrls": [{"url": url_maps}],
-            "language": "pt-BR",
-            "maxReviews": 50,
-            "reviewsSort": "highestRanking",
-            "scrapeReviewsPersonalData": True,
-            "scrapeContacts": True,
-            "maxImages": 0,
-            "scrapeSocialMediaProfiles": {
-                "facebooks": False,
-                "instagrams": False,
-                "youtubes": False,
-                "tiktoks": False,
-                "twitters": False
-            },
+            "languageCode": "pt-BR",
+            "maxCrawledPlaces": 1,
+            "reviewsSort": "mostRelevant",
+            "maxReviewsPerPlace": 50,
+            "includeReviewsText": True,
+            "includePhotos": False,
+            "includeOwnerResponse": True,
         }
 
+        print(f"  - Input enviado ao Actor: {json.dumps(run_input_maps, indent=2)[:500]}...")
         print("  - Executando Actor do Google Maps (compass/crawler-google-places)...")
         try:
-            # REMOVIDO: wait_secs e timeout_secs
+            # Executar o actor com timeout adequado
             run_maps = client.actor("compass/crawler-google-places").call(
-                run_input=run_input_maps
+                run_input=run_input_maps,
+                timeout_secs=300  # 5 minutos de timeout
             )
-            print(f"  - ✅ Run do Maps finalizada com sucesso. Dataset ID: {run_maps.default_dataset_id}")
-
-            print("  - Iterando sobre os resultados do Maps...")
-            dados = list(client.dataset(run_maps.default_dataset_id).iterate_items())
-            print(f"  - Dados brutos recebidos do dataset: {len(dados)} itens.")
-
-            if not dados:
-                print("  - ⚠️ Nenhum item de dados (empresa) retornado pelo Actor do Maps.")
-                texto_completo_maps = "Nenhum dado foi extraído do Google Maps. A página pode estar protegida ou o termo de busca pode não retornar resultados."
+            
+            # Verificar status da execução
+            if run_maps.get('status') == 'FAILED':
+                print(f"  - ❌ Actor falhou: {run_maps.get('errorMessage', 'Erro desconhecido')}")
+                texto_completo_maps = f"Erro na execução do Actor: {run_maps.get('errorMessage', 'Falha desconhecida')}"
             else:
-                print("  - Processando primeiro item (empresa)...")
-                empresa = dados[0] # Assume que o primeiro item é a empresa alvo
+                print(f"  - ✅ Run do Maps finalizada com sucesso. Dataset ID: {run_maps.default_dataset_id}")
 
-                texto_completo_maps += "=== DADOS DO NEGÓCIO (MAPS) ===\n"
-                texto_completo_maps += f"Nome: {empresa.get('title', 'N/A')}\n"
-                texto_completo_maps += f"Categoria: {empresa.get('categoryName', 'N/A')}\n"
-                texto_completo_maps += f"Endereço: {empresa.get('address', 'N/A')}\n"
-                texto_completo_maps += f"Telefone: {empresa.get('phone', 'N/A')}\n"
-                texto_completo_maps += f"Website: {empresa.get('website', 'N/A')}\n"
-                texto_completo_maps += f"Avaliação Geral: {empresa.get('totalScore', 0)} estrelas ({empresa.get('reviewsCount', 0)} avaliações)\n\n"
+                print("  - Iterando sobre os resultados do Maps...")
+                dados = list(client.dataset(run_maps.default_dataset_id).iterate_items())
+                print(f"  - Dados brutos recebidos do dataset: {len(dados)} itens.")
 
-                texto_completo_maps += "=== AVALIAÇÕES DE CLIENTES (PROVA SOCIAL) ===\n"
-                reviews = empresa.get('reviews', [])
-                if not reviews:
-                    print("  - ⚠️ Nenhuma avaliação textual encontrada no item retornado.")
-                    texto_completo_maps += "Nenhuma avaliação textual encontrada no Maps.\n"
+                if not dados:
+                    print("  - ⚠️ Nenhum item de dados (empresa) retornado pelo Actor do Maps.")
+                    texto_completo_maps = "Nenhum dado foi extraído do Google Maps. A página pode estar protegida ou o termo de busca pode não retornar resultados."
                 else:
-                    print(f"  - Encontradas {len(reviews)} avaliações no item retornado.")
-                    for rev in reviews[:20]: # Limita a 20 reviews
-                        autor = rev.get('author', 'Anônimo')
-                        texto_rev = rev.get('text', 'Sem texto')
-                        data_rev = rev.get('publishedAt', '')
-                        texto_completo_maps += f"- [{autor}] ({data_rev}): {texto_rev}\n"
+                    print("  - Processando primeiro item (empresa)...")
+                    empresa = dados[0] # Assume que o primeiro item é a empresa alvo
+                    
+                    # Debug: mostrar estrutura dos dados recebidos
+                    print(f"  - DEBUG: Chaves disponíveis no objeto empresa: {list(empresa.keys())[:20]}")
+
+                    texto_completo_maps += "=== DADOS DO NEGÓCIO (MAPS) ===\n"
+                    texto_completo_maps += f"Nome: {empresa.get('title', empresa.get('name', 'N/A'))}\n"
+                    texto_completo_maps += f"Categoria: {empresa.get('categoryName', empresa.get('category', 'N/A'))}\n"
+                    texto_completo_maps += f"Endereço: {empresa.get('address', 'N/A')}\n"
+                    texto_completo_maps += f"Telefone: {empresa.get('phone', empresa.get('contactPhone', 'N/A'))}\n"
+                    texto_completo_maps += f"Website: {empresa.get('website', empresa.get('url', 'N/A'))}\n"
+                    texto_completo_maps += f"Avaliação Geral: {empresa.get('totalScore', empresa.get('averageRating', 0))} estrelas ({empresa.get('reviewsCount', empresa.get('totalReviews', 0))} avaliações)\n\n"
+
+                    texto_completo_maps += "=== AVALIAÇÕES DE CLIENTES (PROVA SOCIAL) ===\n"
+                    reviews = empresa.get('reviews', [])
+                    if not reviews:
+                        print("  - ⚠️ Nenhuma avaliação textual encontrada no item retornado.")
+                        texto_completo_maps += "Nenhuma avaliação textual encontrada no Maps.\n"
+                    else:
+                        print(f"  - Encontradas {len(reviews)} avaliações no item retornado.")
+                        for rev in reviews[:20]: # Limita a 20 reviews
+                            autor = rev.get('author', rev.get('reviewerName', 'Anônimo'))
+                            texto_rev = rev.get('text', rev.get('reviewText', 'Sem texto'))
+                            data_rev = rev.get('publishedAt', rev.get('reviewDate', ''))
+                            rating = rev.get('rating', '')
+                            texto_completo_maps += f"- [{autor}] ({data_rev}) - {rating}⭐: {texto_rev}\n"
 
         except Exception as e:
             print(f"  - ❌ Erro CRÍTICO ao executar o Actor do Maps: {e}")
             import traceback
             traceback.print_exc()
             texto_completo_maps = f"Erro ao extrair dados do Google Maps: {str(e)}"
+            
+            # Dica de solução
+            print("\n  💡 DICAS PARA RESOLVER:")
+            print("     1. Verifique se o token APIFY_API_TOKEN está correto")
+            print("     2. Confirme se a URL do Maps está acessível no navegador")
+            print("     3. Tente usar uma URL completa do Google Maps")
+            print("     4. O Actor pode estar indisponível temporariamente")
 
 
     # Salva o txt do Maps
