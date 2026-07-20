@@ -125,14 +125,20 @@ def rodar_extracao(url_insta, url_maps):
                 "language": "pt"
             }
 
-            # Lógica inteligente para definir se o input é texto ou Link Direto
-            if "query=" in url_maps:
-                termo_busca = urllib.parse.unquote(url_maps.split("query=")[1])
-                run_input_maps["searchStringsArray"] = [termo_busca]
-            elif url_maps.startswith("http"):
-                run_input_maps["startUrls"] = [{"url": url_maps}] # Obrigatório para links do maps[cite: 11]
+            # Lógica para rotear Link Direto ou Texto
+            if url_maps.startswith("http"):
+                # Se o cliente colar um link (ex: maps.app.goo.gl), manda como startUrl[cite: 11]
+                run_input_maps["startUrls"] = [{"url": url_maps}]
             else:
-                run_input_maps["searchStringsArray"] = [url_maps]
+                # Se for texto, separa a Empresa do Local pela vírgula[cite: 11]
+                if "," in url_maps:
+                    partes = url_maps.split(",")
+                    run_input_maps["searchStringsArray"] = [partes[0].strip()]
+                    run_input_maps["locationQueries"] = [partes[1].strip() + ", Brasil"]
+                else:
+                    # Fallback caso o cliente digite só o nome da empresa sem a cidade
+                    run_input_maps["searchStringsArray"] = [url_maps]
+                    run_input_maps["locationQueries"] = ["Brasil"]
 
             run_maps = client.actor("AabCualFIriz3X6Fs").call(run_input=run_input_maps)
 
