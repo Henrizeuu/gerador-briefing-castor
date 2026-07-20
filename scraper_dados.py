@@ -23,18 +23,20 @@ def rodar_extracao(url_insta, url_maps):
     # ---------------------------------------------------------
     try:
         print(f"🦫 Iniciando extração dos Posts (Lowcost) para: @{nome_cliente}")
+        
         run_input_barato = {
             "usernames": [nome_cliente],
             "postsPerProfile": 12,
             "proxy": {
                 "useApifyProxy": True,
-                "apifyProxyGroups": ["RESIDENTIAL"],
+                "apifyProxyGroups": ["RESIDENTIAL"], # Grupo correto para redes sociais
+                "apifyProxyCountry": "BR"            # Força o IP a ser do Brasil
             }
         }
         
         run_barato = client.actor("sones/instagram-posts-scraper-lowcost").call(run_input=run_input_barato)
         
-        for item in client.dataset(run_barato["defaultDatasetId"]).iterate_items():
+        for item in client.dataset(run_barato.default_dataset_id).iterate_items():
             shortcode = item.get("code")
             if not shortcode: continue
             
@@ -72,20 +74,23 @@ def rodar_extracao(url_insta, url_maps):
     try:
         print(f"🦫 Iniciando extração do Perfil (Premium) para: @{nome_cliente}")
         
-        # Restaurado com os seus parâmetros originais perfeitamente
         run_input_caro = {
             "profiles": [nome_cliente],
             "scrape_profile_data": True,
             "scrape_posts": False,
             "scrape_reels": False,
+            "proxy": {
+                "useApifyProxy": True,
+                "apifyProxyGroups": ["RESIDENTIAL"], # Blindagem aplicada aqui também
+                "apifyProxyCountry": "BR"
+            }
         }
         
         run_caro = client.actor("hpix/instagram-scraper").call(run_input=run_input_caro)
         
         nome_completo, bio, seguidores, categoria, foto_perfil_url = "", "", 0, "N/A", ""
         
-        for item in client.dataset(run_caro["defaultDatasetId"]).iterate_items():
-            # Adaptação para pegar os dados independente de como a API formatar
+        for item in client.dataset(run_caro.default_dataset_id).iterate_items():
             if item.get("kind") == "profile":
                 dados = item.get("data", {})
             else:
@@ -125,25 +130,22 @@ def rodar_extracao(url_insta, url_maps):
                 "language": "pt"
             }
 
-            # Lógica para rotear Link Direto ou Texto
             if url_maps.startswith("http"):
-                # Se o cliente colar um link (ex: maps.app.goo.gl), manda como startUrl[cite: 11]
                 run_input_maps["startUrls"] = [{"url": url_maps}]
             else:
-                # Se for texto, separa a Empresa do Local pela vírgula[cite: 11]
                 if "," in url_maps:
                     partes = url_maps.split(",")
                     run_input_maps["searchStringsArray"] = [partes[0].strip()]
                     run_input_maps["locationQueries"] = [partes[1].strip() + ", Brasil"]
                 else:
-                    # Fallback caso o cliente digite só o nome da empresa sem a cidade
                     run_input_maps["searchStringsArray"] = [url_maps]
                     run_input_maps["locationQueries"] = ["Brasil"]
 
             run_maps = client.actor("AabCualFIriz3X6Fs").call(run_input=run_input_maps)
 
             texto_avaliacoes = ""
-            for item in client.dataset(run_maps["defaultDatasetId"]).iterate_items():
+            
+            for item in client.dataset(run_maps.default_dataset_id).iterate_items():
                 nome_empresa = item.get("title", "Empresa Alvo")
                 nota = item.get("totalScore", "Sem nota")
                 reviews = item.get("reviews", [])
